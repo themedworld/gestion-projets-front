@@ -89,7 +89,7 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
   return (
     <div className="flex h-screen w-full bg-slate-50 overflow-hidden font-sans">
       {/* Sidebar */}
-      <SidebarComponent user={user} />
+      <SidebarComponent  />
 
       {/* Contenu principal */}
       <div className="flex-1 flex flex-col h-full min-w-0">
