@@ -1,3 +1,4 @@
+"use client";
 import EditUserPage from "@/component/edituser";
 import { useParams } from "next/navigation";
 
