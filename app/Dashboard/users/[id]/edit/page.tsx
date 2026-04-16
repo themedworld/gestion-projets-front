@@ -7,7 +7,7 @@ export default function EditUserPagePage() {
 
   return (
     <div className="p-10">
-      <EditUserPage  />
+      <EditUserPage userId={id} />
     </div>
   );
 }
