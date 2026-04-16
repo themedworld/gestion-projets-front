@@ -25,7 +25,7 @@ interface User {
   id: number;
   fullname: string;
   email: string;
-  role: string;
+  role: UserRole;
   company?: Company | null;
   isActive: boolean;
 }
