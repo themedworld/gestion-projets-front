@@ -1,14 +1,15 @@
 "use client";
+
 import EditUserPage from "@/component/edituser";
 import { useParams } from "next/navigation";
 
 export default function EditUserPagePage() {
-  const { id } = useParams(); // récupère le [id] depuis l'URL
+  const params = useParams();
+  const id = Array.isArray(params.id) ? params.id[0] : params.id;
 
   return (
     <div className="p-10">
-      <EditUserPage userId={id} />
+      <EditUserPage id={id} />
     </div>
   );
 }
-
