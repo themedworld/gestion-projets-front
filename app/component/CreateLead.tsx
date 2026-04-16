@@ -90,7 +90,8 @@ export default function CreateLeadPage() {
   const handleChange = (
     e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement>
   ) => {
-    const { name, value, type, checked } = e.target;
+    const { name, value, type, checked } = e.currentTarget;
+
 
     setForm({
       ...form,
