@@ -87,22 +87,24 @@ export default function CreateLeadPage() {
 
   /* ================= HANDLE CHANGE ================= */
 
-  const handleChange = (
-    e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement>
-  ) => {
-    const { name, value, type, checked } = e.currentTarget;
+const handleChange = (
+  e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement>
+) => {
+  const target = e.currentTarget;
 
+  const name = target.name;
 
-    setForm({
-      ...form,
-      [name]:
-        type === "checkbox"
-          ? checked
-          : type === "number"
-          ? Number(value)
-          : value,
-    });
-  };
+  const value =
+    target instanceof HTMLInputElement && target.type === "checkbox"
+      ? target.checked
+      : target.value;
+
+  setForm({
+    ...form,
+    [name]: value,
+  });
+};
+
 
   /* ================= SUBMIT ================= */
 
