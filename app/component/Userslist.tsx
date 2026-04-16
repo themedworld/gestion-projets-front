@@ -33,7 +33,7 @@ interface User {
 /* Current user pour permissions */
 interface CurrentUser {
   id: number;
-  role: string;
+   role: UserRole;
   company?: Company | null;
 }
 
