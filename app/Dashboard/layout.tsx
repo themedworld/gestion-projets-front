@@ -93,7 +93,7 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
 
       {/* Contenu principal */}
       <div className="flex-1 flex flex-col h-full min-w-0">
-        <HeaderComponent user={user} />
+        <HeaderComponent />
 
         <main className="flex-1 overflow-y-auto p-6 md:p-8 scroll-smooth">
           <div className="mx-auto max-w-7xl animate-in fade-in slide-in-from-bottom-4 duration-500">
