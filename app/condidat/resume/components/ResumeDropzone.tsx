@@ -8,10 +8,11 @@ import {
 } from "@/condidat/resume/lib/redux/local-storage";
 import { type ShowForm, initialSettings } from "@/condidat/resume/lib/redux/settingsSlice";
 import { useRouter } from "next/navigation";
-import addPdfSrc from "public/assets/add-pdf.svg";
+
 import Image from "next/image";
 import { cx } from "@/condidat/resume/lib/cx";
 import { deepClone } from "@/condidat/resume/lib/deep-clone";
+const addPdfSrc = "/assets/add-pdf.svg";
 
 const defaultFileState = {
   name: "",
