@@ -681,12 +681,19 @@ export default function OSINTDashboard() {
                 <p className="text-sm font-semibold text-gray-700">Paramètres de recherche</p>
               </div>
               <div className="px-5 py-4 space-y-4">
-                {([
-                  { field: "company_name",   label: "Nom de la société", placeholder: "ex: Acme Corp",  icon: <Building2 size={13} className="text-gray-400" /> },
-                  { field: "company_handle", label: "Handle (slug)",     placeholder: "ex: acme-corp",  icon: <Hash      size={13} className="text-gray-400" /> },
-                  { field: "country_name",   label: "Pays",              placeholder: "ex: France",     icon: <Globe     size={13} className="text-gray-400" /> },
-                  { field: "country_iso",    label: "Code ISO",          placeholder: "ex: TN",         icon: null, maxLength: 2 as number },
-                ] as const).map(({ field, label, placeholder, icon, maxLength }) => (
+              // Replace the array declaration with a typed version
+{([
+  { field: "company_name",   label: "Nom de la société", placeholder: "ex: Acme Corp", icon: <Building2 size={13} className="text-gray-400" />, maxLength: undefined },
+  { field: "company_handle", label: "Handle (slug)",     placeholder: "ex: acme-corp", icon: <Hash      size={13} className="text-gray-400" />, maxLength: undefined },
+  { field: "country_name",   label: "Pays",              placeholder: "ex: France",    icon: <Globe     size={13} className="text-gray-400" />, maxLength: undefined },
+  { field: "country_iso",    label: "Code ISO",          placeholder: "ex: TN",        icon: null,                                             maxLength: 2 },
+] as Array<{
+  field: keyof OSINTFormData;
+  label: string;
+  placeholder: string;
+  icon: React.ReactNode;
+  maxLength: number | undefined;
+}>).map(({ field, label, placeholder, icon, maxLength }) => (
                   <div key={field}>
                     <label className="block text-xs font-medium text-gray-600 mb-1.5">{label}</label>
                     <div className="relative">
