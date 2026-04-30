@@ -68,7 +68,7 @@ export default function Home() {
             type="number"
             placeholder="Max Results"
             value={maxResults}
-            onChange={(e) => setMaxResults(e.target.value)}
+            onChange={(e) => setMaxResults(parseInt(e.target.value, 10))}
             className="border p-3 rounded-xl"
           />
         </div>
