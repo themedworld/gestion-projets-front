@@ -147,16 +147,10 @@ const getAuthToken = () =>
   typeof window !== 'undefined' ? localStorage.getItem('access_token') || '' : '';
 
 // ── Cost estimation (FastAPI / XGBoost) ──────────────────────────────────────
-/**
- * estimatedDurationDays = sum of all task hours / 8 (hours per working day) / teamSize
- * This is computed OUTSIDE this function and passed as `totalDays`.
- *
- * Note: the function signature is (projectDetails, sprints, totalDays) — NO token argument.
- */
 async function estimateProjectCost(
   projectDetails: ProjectDetails,
   sprints: Sprint[],
-  totalDays: number,          // ← correct: no token arg between sprints and totalDays
+  totalDays: number,
 ): Promise<{ cost: number | null; payload: Record<string, unknown> }> {
   const p = projectDetails.project;
 
@@ -165,10 +159,6 @@ async function estimateProjectCost(
       ? p.assignedTo.length
       : p.itDetails?.teamSize ?? 1;
 
-  /**
-   * estimatedDurationDays = Σ(task.estimatedHours) / 8 / teamSize
-   * totalDays is already that value — just ceil it and guard against NaN / 0.
-   */
   const estimatedDurationDays = Math.max(Math.ceil(isNaN(totalDays) ? 1 : totalDays), 1);
 
   const payload: Record<string, unknown> = {
@@ -180,16 +170,11 @@ async function estimateProjectCost(
     apiIntegration:       p.apiIntegration       || 'REST',
     securityRequirements: p.securityRequirements || 'OAuth2',
     devOpsRequirements:   p.devOpsRequirements   || 'Kubernetes',
-
-    estimatedDurationDays,   // ✅ always a valid positive integer
-
+    estimatedDurationDays,
     priority:       p.priority || 'High',
     businessImpact: normalizeBusinessImpact(p.businessImpact),
-
     teamSize,
-
     complexity: deriveDominantComplexity(sprints, p.priority),
-
     mainModules: deriveMainModules(p.architecture, p.framework),
   };
 
@@ -253,6 +238,15 @@ function formatHours(hours: number): string {
   const h = Math.floor(hours);
   const m = Math.round((hours - h) * 60);
   return m > 0 ? `${h}h${m.toString().padStart(2, '0')}` : `${h}h`;
+}
+
+// ── Tooltip formatter helper ───────────────────────────────────────────────────
+// Recharts ValueType = number | string | (string | number)[] | undefined
+// We need to safely coerce it to a displayable number.
+function toNum(v: unknown): number {
+  if (typeof v === 'number') return v;
+  if (typeof v === 'string') return parseFloat(v) || 0;
+  return 0;
 }
 
 // ── Design tokens ──────────────────────────────────────────────────────────────
@@ -550,7 +544,6 @@ export default function SprintEstimationPage() {
             tasks: s.tasks.map((t) => ({
               ...t,
               status:            t.status || 'TO_DO',
-              // Force all numeric fields — API may return strings
               estimatedHours:    Number(t.estimatedHours)    || 0,
               aiEstimatedHours:  t.aiEstimatedHours != null
                                    ? Number(t.aiEstimatedHours) || 0
@@ -657,16 +650,11 @@ export default function SprintEstimationPage() {
 
     const hoursPerDay = 8;
 
-    /**
-     * totalHours = sum of all task estimated hours (AI hours preferred, else manual)
-     * totalDays  = totalHours / hoursPerDay / teamSize
-     *            = Σ(task.hours) / 8 / teamSize
-     */
     const totalHours = allTasks.reduce(
       (sum, t) => sum + (Number(t.aiEstimatedHours) || Number(t.estimatedHours) || 0),
       0,
     );
-    const totalDays    = totalHours / hoursPerDay / teamSize;   // ← source of truth
+    const totalDays    = totalHours / hoursPerDay / teamSize;
     const dailyRate    = 350;
     const manpowerCost = Math.round(Math.ceil(totalDays) * teamSize * dailyRate);
     const infraCost    = Math.round(manpowerCost * 0.18);
@@ -680,11 +668,10 @@ export default function SprintEstimationPage() {
     let costSource: 'ai' | 'fallback' = 'fallback';
 
     if (projectDetails) {
-      // ✅ Pass totalDays (number) — NOT token (string)
       const { cost, payload } = await estimateProjectCost(
         projectDetails,
         sprints,
-        totalDays,   // ← correct argument
+        totalDays,
       );
       setLastPayload(payload);
 
@@ -866,7 +853,11 @@ export default function SprintEstimationPage() {
                         <Cell key={`cell-${index}`} fill={entry.color} />
                       ))}
                     </Pie>
-                    <Tooltip contentStyle={ChartTooltipStyle} formatter={(value: number, name: string) => [`${value} tâches`, name]} />
+                    {/* ✅ FIX: cast value via toNum() helper to avoid ValueType mismatch */}
+                    <Tooltip
+                      contentStyle={ChartTooltipStyle}
+                      formatter={(value, name) => [`${toNum(value)} tâches`, String(name)]}
+                    />
                   </RePieChart>
                 </ResponsiveContainer>
               </div>
@@ -891,7 +882,11 @@ export default function SprintEstimationPage() {
                     <CartesianGrid strokeDasharray="3 3" stroke="#f3f4f6" vertical={false} />
                     <XAxis dataKey="name" stroke="#d1d5db" fontSize={10} tickLine={false} axisLine={false} />
                     <YAxis stroke="#d1d5db" fontSize={10} tickLine={false} axisLine={false} allowDecimals={false} />
-                    <Tooltip contentStyle={ChartTooltipStyle} formatter={(v: number) => [`${v} tâche(s)`, 'Tâches']} />
+                    {/* ✅ FIX: cast value via toNum() helper */}
+                    <Tooltip
+                      contentStyle={ChartTooltipStyle}
+                      formatter={(value) => [`${toNum(value)} tâche(s)`, 'Tâches']}
+                    />
                     <Bar dataKey="tâches" radius={[4, 4, 0, 0]}>
                       {riskChartData.map((entry, index) => (
                         <Cell key={`risk-${index}`} fill={entry.fill} />
@@ -924,7 +919,11 @@ export default function SprintEstimationPage() {
                     <CartesianGrid strokeDasharray="3 3" stroke="#f3f4f6" vertical={false} />
                     <XAxis dataKey="name" stroke="#d1d5db" fontSize={10} tickLine={false} axisLine={false} />
                     <YAxis stroke="#d1d5db" fontSize={10} tickLine={false} axisLine={false} />
-                    <Tooltip contentStyle={ChartTooltipStyle} formatter={(v: number, n: string) => [`${v} SP`, n]} />
+                    {/* ✅ FIX: cast value via toNum() helper */}
+                    <Tooltip
+                      contentStyle={ChartTooltipStyle}
+                      formatter={(value, name) => [`${toNum(value)} SP`, String(name)]}
+                    />
                     <Bar dataKey="Prévu"   fill="#e5e7eb" radius={[3, 3, 0, 0]} />
                     <Bar dataKey="Réalisé" fill="#4f46e5" radius={[3, 3, 0, 0]} />
                   </BarChart>
@@ -1020,7 +1019,11 @@ export default function SprintEstimationPage() {
                             <Cell key={`cost-${index}`} fill={entry.color} />
                           ))}
                         </Pie>
-                        <Tooltip contentStyle={ChartTooltipStyle} formatter={(v: number, n: string) => [`${v.toLocaleString('fr-FR')} dt`, n]} />
+                        {/* ✅ FIX: cast value via toNum() helper */}
+                        <Tooltip
+                          contentStyle={ChartTooltipStyle}
+                          formatter={(value, name) => [`${toNum(value).toLocaleString('fr-FR')} dt`, String(name)]}
+                        />
                       </RePieChart>
                     </ResponsiveContainer>
                   </div>

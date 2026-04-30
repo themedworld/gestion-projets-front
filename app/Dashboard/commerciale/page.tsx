@@ -681,7 +681,7 @@ export default function OSINTDashboard() {
                 <p className="text-sm font-semibold text-gray-700">Paramètres de recherche</p>
               </div>
               <div className="px-5 py-4 space-y-4">
-              // Replace the array declaration with a typed version
+
 {([
   { field: "company_name",   label: "Nom de la société", placeholder: "ex: Acme Corp", icon: <Building2 size={13} className="text-gray-400" />, maxLength: undefined },
   { field: "company_handle", label: "Handle (slug)",     placeholder: "ex: acme-corp", icon: <Hash      size={13} className="text-gray-400" />, maxLength: undefined },
