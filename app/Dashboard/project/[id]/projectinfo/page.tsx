@@ -1335,7 +1335,9 @@ export default function SprintEstimationPage() {
                                   )}
                                 </span>
                                 {task.riskLevel >= 3 && (
-                                  <AlertTriangle size={13} color="#f59e0b" title={`Risque: ${task.riskLevel}/5`} />
+                                 <span title={`Risque: ${task.riskLevel}/5`}>
+  <AlertTriangle size={13} color="#f59e0b" />
+</span>
                                 )}
                                 <span style={{
                                   background: '#f3f4f6', color: '#6b7280',
