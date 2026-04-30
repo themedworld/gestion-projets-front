@@ -685,7 +685,7 @@ export default function OSINTDashboard() {
                   { field: "company_name",   label: "Nom de la société", placeholder: "ex: Acme Corp",  icon: <Building2 size={13} className="text-gray-400" /> },
                   { field: "company_handle", label: "Handle (slug)",     placeholder: "ex: acme-corp",  icon: <Hash      size={13} className="text-gray-400" /> },
                   { field: "country_name",   label: "Pays",              placeholder: "ex: France",     icon: <Globe     size={13} className="text-gray-400" /> },
-                  { field: "country_iso",    label: "Code ISO",          placeholder: "ex: TN",         icon: null, maxLength: 2 },
+                  { field: "country_iso",    label: "Code ISO",          placeholder: "ex: TN",         icon: null, maxLength: 2 as number },
                 ] as const).map(({ field, label, placeholder, icon, maxLength }) => (
                   <div key={field}>
                     <label className="block text-xs font-medium text-gray-600 mb-1.5">{label}</label>
