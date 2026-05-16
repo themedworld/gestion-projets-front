@@ -3,19 +3,29 @@
 // Reusable task form.
 // • `mode="inline"` — compact, used inside sprint creation/edition (no save button)
 // • `mode="edit"`   — standalone with Save / Cancel buttons, used for editing existing tasks
+//
+// Date validation:
+//   task.scheduledStartDate and task.scheduledEndDate must both lie within
+//   [sprint.startDate, sprint.endDate].  Errors are shown inline and the Save
+//   button is disabled until all errors are resolved.
 
-import React from 'react';
-import { Calendar, Cpu, Save, Loader2, Trash2 } from 'lucide-react';
-import type { Task, TaskType, TaskStatus, TaskPriority, ProjectMember } from '@/Dashboard/project/[id]/sprintslist/services/types';
+import React, { useMemo } from 'react';
+import { Calendar, Cpu, Save, Loader2, Trash2, AlertCircle } from 'lucide-react';
+import type {
+  Task, TaskType, TaskStatus, TaskPriority, ProjectMember, Sprint,
+} from '@/Dashboard/project/[id]/sprintslist/services/types';
 import { inputClass } from '@/Dashboard/project/[id]/sprintslist/services/types';
 import { formatHoursDays, safeHours } from '@/Dashboard/project/[id]/sprintslist/services/estimationService';
+import { validateTaskDates } from '@/Dashboard/project/[id]/sprintslist/services/Datevalidation';
 
 interface TaskFormProps {
   task: Task;
-  index?: number;           // used in "inline" mode for the header label
+  index?: number;
   members: ProjectMember[];
   mode: 'inline' | 'edit';
-  disabled?: boolean;       // lock fields for existing tasks in inline mode
+  /** Sprint bounds used for date validation */
+  sprint?: Pick<Sprint, 'startDate' | 'endDate' | 'name'>;
+  disabled?: boolean;
   loading?: boolean;
   estimating?: boolean;
   showRemoveButton?: boolean;
@@ -25,11 +35,20 @@ interface TaskFormProps {
   onRemove?: () => void;
 }
 
+// ── Small inline error message ────────────────────────────────────────────────
+const FieldError = ({ message }: { message: string }) => (
+  <p className="mt-1 text-xs text-red-600 flex items-center gap-1">
+    <AlertCircle size={11} className="flex-shrink-0" />
+    {message}
+  </p>
+);
+
 export const TaskForm: React.FC<TaskFormProps> = ({
   task,
   index,
   members,
   mode,
+  sprint,
   disabled = false,
   loading = false,
   estimating = false,
@@ -40,9 +59,48 @@ export const TaskForm: React.FC<TaskFormProps> = ({
   onRemove,
 }) => {
   const isExisting = !!task.id;
+  const lock = (forExisting = true) =>
+    disabled || (mode === 'inline' && isExisting && forExisting);
+  // Utilitaire à ajouter
+function getMemberName(assignedTo: any, members: ProjectMember[]): string {
+  if (!assignedTo) return '—';
+  
+  // Objet retourné directement par le backend { id, firstName, lastName }
+  if (typeof assignedTo === 'object' && assignedTo.firstName) {
+    return `${assignedTo.firstName} ${assignedTo.lastName ?? ''}`.trim();
+  }
+  
+  // ID numérique ou string → chercher dans members
+  const id = typeof assignedTo === 'object' ? assignedTo.id : Number(assignedTo);
+  const member = members.find(m => m.id === id);
+  return member
+    ? (member.name ?? `${member.firstName ?? ''} ${member.lastName ?? ''}`.trim())
+    : '—';
+}
 
-  // In inline mode some fields are locked for existing tasks
-  const lock = (forExisting = true) => disabled || (mode === 'inline' && isExisting && forExisting);
+// Usage dans le JSX
+
+
+  // ── Date validation ─────────────────────────────────────────────────────────
+  const dateErrors = useMemo(() => {
+    if (!sprint?.startDate || !sprint?.endDate) return [];
+    return validateTaskDates(task, sprint);
+  }, [task.scheduledStartDate, task.scheduledEndDate, sprint]);
+
+  const fieldError = (field: string) =>
+    dateErrors.find((e) => e.field === field)?.message;
+
+  const hasDateErrors = dateErrors.length > 0;
+
+  // ── Date input constraints (min/max) based on sprint ───────────────────────
+  const sprintMin = sprint?.startDate
+    ? new Date(sprint.startDate).toISOString().split('T')[0]
+    : undefined;
+  const sprintMax = sprint?.endDate
+    ? new Date(sprint.endDate).toISOString().split('T')[0]
+    : undefined;
+
+  const errorBorder = 'border-red-400 focus:border-red-500 focus:ring-red-400/30';
 
   return (
     <div
@@ -52,7 +110,7 @@ export const TaskForm: React.FC<TaskFormProps> = ({
           : 'p-4 bg-slate-50 border border-slate-200 rounded-lg'
       }
     >
-      {/* Header (inline mode) */}
+      {/* ── Header ─────────────────────────────────────────────────────────── */}
       {mode === 'inline' && (
         <div className="flex justify-between items-start mb-3">
           <h4 className="font-semibold text-slate-700">
@@ -70,17 +128,30 @@ export const TaskForm: React.FC<TaskFormProps> = ({
         </div>
       )}
 
-      {/* Edit mode header */}
       {mode === 'edit' && (
         <h5 className="font-bold text-blue-900">Éditer la tâche</h5>
       )}
 
-      {/* Current AI estimate display */}
-      {(safeHours(task.aiEstimatedHours ?? task.estimatedHours) > 0) && (
+      {/* ── Sprint date hint ────────────────────────────────────────────────── */}
+      {sprint?.startDate && sprint?.endDate && (
+        <div className="flex items-center gap-2 text-xs text-slate-500 bg-slate-100 border border-slate-200 rounded-lg px-3 py-1.5">
+          <Calendar size={12} />
+          <span>
+            Plage du sprint{sprint.name ? ` "${sprint.name}"` : ''} :{' '}
+            <strong>
+              {new Date(sprint.startDate).toLocaleDateString('fr-FR')} →{' '}
+              {new Date(sprint.endDate).toLocaleDateString('fr-FR')}
+            </strong>
+          </span>
+        </div>
+      )}
+
+      {/* ── AI estimate display ─────────────────────────────────────────────── */}
+      {safeHours(task.aiEstimatedHours ?? task.estimatedHours) > 0 && (
         <div className="flex items-center gap-2 text-sm text-violet-700 bg-violet-50 border border-violet-200 rounded-lg px-3 py-2">
           <Cpu size={14} />
           <span>
-            Estimation IA:{' '}
+            Estimation IA :{' '}
             <strong>
               {formatHoursDays(safeHours(task.aiEstimatedHours ?? task.estimatedHours))}
             </strong>
@@ -88,7 +159,7 @@ export const TaskForm: React.FC<TaskFormProps> = ({
         </div>
       )}
 
-      {/* ── Fields grid ─────────────────────────────────────────────────── */}
+      {/* ── Fields grid ────────────────────────────────────────────────────── */}
       <div className="grid grid-cols-1 md:grid-cols-12 gap-3">
 
         {/* Title */}
@@ -112,7 +183,7 @@ export const TaskForm: React.FC<TaskFormProps> = ({
               const m = members.find((mb) => mb.id === Number(task.assignedTo));
               return m?.level ? (
                 <span className="ml-2 px-1.5 py-0.5 bg-indigo-100 text-indigo-700 rounded text-[10px] font-bold">
-                  {m.level}
+                 <span>{getMemberName(task.assignedTo, members)}</span>
                 </span>
               ) : null;
             })()}
@@ -230,32 +301,42 @@ export const TaskForm: React.FC<TaskFormProps> = ({
           />
         </div>
 
-        {/* Start date */}
+        {/* Start date — clamped to sprint bounds */}
         <div className="md:col-span-3">
           <label className="text-xs font-semibold text-slate-600 mb-1 block flex items-center gap-1">
             <Calendar size={12} /> Début
           </label>
           <input
             type="date"
-            className={inputClass}
+            min={sprintMin}
+            max={sprintMax}
+            className={`${inputClass} ${fieldError('scheduledStartDate') ? errorBorder : ''}`}
             value={task.scheduledStartDate ?? ''}
             onChange={(e) => onChange('scheduledStartDate', e.target.value)}
             disabled={lock()}
           />
+          {fieldError('scheduledStartDate') && (
+            <FieldError message={fieldError('scheduledStartDate')!} />
+          )}
         </div>
 
-        {/* End date */}
+        {/* End date — clamped to sprint bounds */}
         <div className="md:col-span-3">
           <label className="text-xs font-semibold text-slate-600 mb-1 block flex items-center gap-1">
             <Calendar size={12} /> Fin
           </label>
           <input
             type="date"
-            className={inputClass}
+            min={task.scheduledStartDate || sprintMin}
+            max={sprintMax}
+            className={`${inputClass} ${fieldError('scheduledEndDate') ? errorBorder : ''}`}
             value={task.scheduledEndDate ?? ''}
             onChange={(e) => onChange('scheduledEndDate', e.target.value)}
             disabled={lock()}
           />
+          {fieldError('scheduledEndDate') && (
+            <FieldError message={fieldError('scheduledEndDate')!} />
+          )}
         </div>
 
         {/* Dependencies */}
@@ -293,7 +374,7 @@ export const TaskForm: React.FC<TaskFormProps> = ({
         </div>
       </div>
 
-      {/* Save / Cancel (edit mode only) */}
+      {/* ── Save / Cancel (edit mode) ───────────────────────────────────────── */}
       {mode === 'edit' && (
         <div className="flex justify-end gap-2 pt-3">
           <button
@@ -304,9 +385,10 @@ export const TaskForm: React.FC<TaskFormProps> = ({
           </button>
           <button
             onClick={onSave}
-            disabled={loading || estimating}
+            disabled={loading || estimating || hasDateErrors}
+            title={hasDateErrors ? 'Corrigez les erreurs de dates avant de sauvegarder.' : undefined}
             className="px-3 py-1.5 bg-blue-600 text-white rounded-lg font-semibold hover:bg-blue-700
-                       disabled:bg-blue-400 transition-colors text-sm flex items-center gap-1.5"
+                       disabled:bg-blue-300 disabled:cursor-not-allowed transition-colors text-sm flex items-center gap-1.5"
           >
             {estimating ? (
               <><Loader2 size={14} className="animate-spin" />Estimation IA…</>

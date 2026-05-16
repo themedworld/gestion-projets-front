@@ -9,10 +9,10 @@ export interface ProjectMember {
   firstName?: string;
   lastName?: string;
   name?: string;
+  fullname?: string;   // ← ajouter
   email: string;
-  level?: string; // "Junior" | "Mid" | "Senior" | "Expert"
+  level?: string;
 }
-
 export interface Task {
   id?: number;
   title: string;

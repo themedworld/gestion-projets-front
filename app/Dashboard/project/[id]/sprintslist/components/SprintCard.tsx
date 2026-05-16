@@ -2,6 +2,7 @@
 // ─── SprintCard.tsx ───────────────────────────────────────────────────────────
 // Renders a single sprint row.
 // Delegates to SprintForm when editing, to TaskCard for each task row.
+// Passes sprint date bounds down so task forms can enforce date constraints.
 
 import React from 'react';
 import {
@@ -9,11 +10,16 @@ import {
 } from 'lucide-react';
 import type { Sprint, Task, ProjectMember } from '@/Dashboard/project/[id]/sprintslist/services/types';
 import { SprintForm } from './SprintForm';
-import { TaskCard } from './TaskCard';
+import { TaskCard }   from './TaskCard';
 
 interface SprintCardProps {
   sprint: Sprint;
   members: ProjectMember[];
+  /** All sprints in the project — passed to SprintForm for overlap validation */
+  allSprints: Sprint[];
+  /** Optional project bounds for sprint date validation */
+  projectStartDate?: string;
+  projectEndDate?: string;
   isExpanded: boolean;
   isEditing: boolean;
   editingSprintData: Sprint | null;
@@ -52,7 +58,8 @@ const statusBadgeClass = (s: Sprint['status']) =>
     : 'bg-slate-100 text-slate-700';
 
 export const SprintCard: React.FC<SprintCardProps> = ({
-  sprint, members, isExpanded, isEditing,
+  sprint, members, allSprints, projectStartDate, projectEndDate,
+  isExpanded, isEditing,
   editingSprintData, editingSprintTasks,
   editingTaskId, editingTaskSprintId, editingTaskData,
   loading, estimating,
@@ -63,7 +70,7 @@ export const SprintCard: React.FC<SprintCardProps> = ({
 }) => (
   <div className="bg-white rounded-xl shadow-sm border border-slate-200 overflow-hidden hover:shadow-md transition-shadow">
 
-    {/* ── Sprint header ─────────────────────────────────────────────── */}
+    {/* ── Sprint header ──────────────────────────────────────────────────── */}
     <div className="p-6 bg-gradient-to-r from-indigo-50 to-purple-50 border-b border-slate-200">
       <div className="flex items-center justify-between gap-4">
 
@@ -95,10 +102,10 @@ export const SprintCard: React.FC<SprintCardProps> = ({
           </div>
         </div>
 
-        {/* Right: dates, status badge, action buttons */}
+        {/* Right: dates, badge, actions */}
         <div className="flex items-center gap-4 flex-shrink-0">
           <div className="text-right hidden sm:block">
-            <p className="text-xs text-slate-500 uppercase font-semibold">Début - Fin</p>
+            <p className="text-xs text-slate-500 uppercase font-semibold">Début – Fin</p>
             <p className="text-sm text-slate-800 font-medium">
               {new Date(sprint.startDate).toLocaleDateString('fr-FR')} –{' '}
               {new Date(sprint.endDate).toLocaleDateString('fr-FR')}
@@ -149,7 +156,7 @@ export const SprintCard: React.FC<SprintCardProps> = ({
         </div>
       </div>
 
-      {/* ── Embedded edit form ─────────────────────────────────────── */}
+      {/* ── Embedded edit form ────────────────────────────────────────────── */}
       {isEditing && editingSprintData && (
         <div className="mt-4 pt-4 border-t border-slate-200">
           <SprintForm
@@ -157,6 +164,9 @@ export const SprintCard: React.FC<SprintCardProps> = ({
             sprint={editingSprintData}
             tasks={editingSprintTasks}
             members={members}
+            allSprints={allSprints}
+            projectStartDate={projectStartDate}
+            projectEndDate={projectEndDate}
             loading={loading}
             estimating={estimating}
             onSprintChange={onSprintChange}
@@ -170,7 +180,7 @@ export const SprintCard: React.FC<SprintCardProps> = ({
       )}
     </div>
 
-    {/* ── Expanded task list ────────────────────────────────────────── */}
+    {/* ── Expanded task list ────────────────────────────────────────────────── */}
     {isExpanded && !isEditing && (
       <div className="p-6 bg-slate-50 border-t border-slate-200">
         <h4 className="font-semibold text-slate-700 flex items-center gap-2 mb-4">
@@ -185,6 +195,7 @@ export const SprintCard: React.FC<SprintCardProps> = ({
                 task={task}
                 members={members}
                 sprintId={sprint.id!}
+                sprint={sprint}          // ← pass sprint bounds for task edit form
                 isEditing={editingTaskId === task.id && editingTaskSprintId === sprint.id}
                 editingData={editingTaskData}
                 loading={loading}

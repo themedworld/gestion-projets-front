@@ -2,10 +2,11 @@
 // ─── TaskCard.tsx ─────────────────────────────────────────────────────────────
 // Read-only task row with edit/delete buttons.
 // Renders the inline <TaskForm> when this task is being edited.
+// Passes sprint date bounds to TaskForm so date validation works in edit mode.
 
 import React from 'react';
 import { Edit2, Trash2 } from 'lucide-react';
-import type { Task, ProjectMember } from '@/Dashboard/project/[id]/sprintslist/services/types';
+import type { Task, ProjectMember, Sprint } from '@/Dashboard/project/[id]/sprintslist/services/types';
 import { TaskForm } from '@/Dashboard/project/[id]/sprintslist/components/TaskForm';
 import { safeHours } from '@/Dashboard/project/[id]/sprintslist/services/estimationService';
 import {
@@ -19,6 +20,8 @@ interface TaskCardProps {
   task: Task;
   members: ProjectMember[];
   sprintId: number;
+  /** Parent sprint — used to constrain task date inputs */
+  sprint: Pick<Sprint, 'startDate' | 'endDate' | 'name'>;
   isEditing: boolean;
   editingData: Task | null;
   loading: boolean;
@@ -34,6 +37,7 @@ export const TaskCard: React.FC<TaskCardProps> = ({
   task,
   members,
   sprintId,
+  sprint,
   isEditing,
   editingData,
   loading,
@@ -44,19 +48,37 @@ export const TaskCard: React.FC<TaskCardProps> = ({
   onCancelEdit,
   onDelete,
 }) => {
-  const getMemberName = (memberId: string) => {
-    const m = members.find((mb) => mb.id === Number(memberId));
-    if (!m) return '';
-    const name = m.name ?? `${m.firstName} ${m.lastName}`;
-    return m.level ? `${name} (${m.level})` : name;
-  };
+
+  // Utilitaire robuste pour afficher le nom du membre assigné
+  function getMemberName(assignedTo: any, members: ProjectMember[]): string {
+    if (!assignedTo) return '—';
+
+    // Si assignedTo est déjà un objet complet avec prénom/nom ou name
+    if (typeof assignedTo === 'object' && (assignedTo.firstName || assignedTo.name || assignedTo.lastName)) {
+      const nameFromObj = assignedTo.name ?? `${assignedTo.firstName ?? ''} ${assignedTo.lastName ?? ''}`.trim();
+      return (nameFromObj || '—').trim();
+    }
+
+    // Extraire un id possible (gère { id }, "5", 5)
+    const rawId = typeof assignedTo === 'object' ? assignedTo.id : assignedTo;
+    if (rawId === undefined || rawId === null) return '—';
+
+    const idStr = String(rawId);
+
+    // Cherche dans members en normalisant les types (string/number)
+    const member = members.find(m => String(m.id) === idStr);
+    if (!member) return '—';
+
+    const memberName = member.name ?? `${member.firstName ?? ''} ${member.lastName ?? ''}`.trim();
+    return (memberName || '—').trim();
+  }
 
   return (
     <div className="bg-white border border-slate-200 rounded-lg overflow-hidden">
       <div className="p-4 hover:shadow-sm transition-shadow">
         <div className="flex items-start justify-between gap-4">
 
-          {/* ── Task info ────────────────────────────────────────────── */}
+          {/* ── Task info ─────────────────────────────────────────────── */}
           <div className="flex-1 min-w-0">
             <h5 className="font-semibold text-slate-800 mb-2">{task.title}</h5>
             {task.description && (
@@ -137,7 +159,7 @@ export const TaskCard: React.FC<TaskCardProps> = ({
                 <div>
                   <span className="text-slate-500">Assigné:</span>
                   <span className="ml-1 font-semibold text-slate-700">
-                    {getMemberName(task.assignedTo)}
+                    <span>{getMemberName(task.assignedTo, members)}</span>
                   </span>
                 </div>
               )}
@@ -169,6 +191,7 @@ export const TaskCard: React.FC<TaskCardProps> = ({
             task={editingData}
             members={members}
             mode="edit"
+            sprint={sprint}          // ← sprint bounds for date validation
             loading={loading}
             estimating={estimating}
             onChange={onEditChange}

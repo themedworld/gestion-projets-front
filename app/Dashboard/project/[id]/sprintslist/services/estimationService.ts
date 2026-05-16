@@ -12,7 +12,7 @@ import type { Task, ProjectMember } from '@/Dashboard/project/[id]/sprintslist/s
 // ─── Member level lookup ──────────────────────────────────────────────────────
 
 export function getMemberLevel(
-   assignedTo: number,
+  assignedTo: number | string | undefined,
   members: ProjectMember[],
 ): string {
   if (!assignedTo) return 'Junior';
@@ -33,7 +33,7 @@ export async function estimateTaskHours(
 
     // FastAPI schema: memberLevel is Field(...) → required, no default.
     // Always resolve to a non-empty string before sending.
-    const memberLevel = getMemberLevel(task. assignedTo, members);
+    const memberLevel = getMemberLevel(task.assignedTo, members);
 
     const payload = {
       type:     task.type.charAt(0).toUpperCase() + task.type.slice(1).toLowerCase(),

@@ -75,21 +75,21 @@ const ROLE_CREATION_RULES: Partial<Record<UserRole, UserRole[]>> = {
 };
 
 const ROLE_LABELS: Record<UserRole, string> = {
-  [UserRole.SUPER_ADMIN]: '🔐 Super Administrateur',
-  [UserRole.ADMIN_COMPANY]: '🏢 Admin Société',
-  [UserRole.MANAGER]: '👔 Manager',
-  [UserRole.PROJECT_MANAGER]: '📋 Chef de projet',
-  [UserRole.CALL_CENTER_MANAGER]: '☎️ Manager Call Center',
-  [UserRole.SALES_MANAGER]: '💼 Manager Ventes',
-  [UserRole.MARKETING_MANAGER]: '📢 Manager Marketing',
-  [UserRole.QUALITY_MANAGER]: '✅ Manager Qualité',
-  [UserRole.HR_MANAGER]: '👥 Manager RH',
-  [UserRole.AGENT_TELEPRO]: '📞 Agent Telepro',
-  [UserRole.COMMERCIAL]: '🎯 Commercial',
-  [UserRole.MARKETING_AGENT]: '📊 Agent Marketing',
-  [UserRole.QUALITE_AGENT]: '🔍 Agent Qualité',
-  [UserRole.TECH_SUPPORT]: '🛠️ Support Technique',
-  [UserRole.MEMBER]: '👤 Membre standard',
+  [UserRole.SUPER_ADMIN]: ' Super Administrateur',
+  [UserRole.ADMIN_COMPANY]: ' Admin Société',
+  [UserRole.MANAGER]: 'Manager',
+  [UserRole.PROJECT_MANAGER]: ' Chef de projet',
+  [UserRole.CALL_CENTER_MANAGER]: ' Manager Call Center',
+  [UserRole.SALES_MANAGER]: 'Manager Ventes',
+  [UserRole.MARKETING_MANAGER]: ' Manager Marketing',
+  [UserRole.QUALITY_MANAGER]: ' Manager Qualité',
+  [UserRole.HR_MANAGER]: ' Manager RH',
+  [UserRole.AGENT_TELEPRO]: ' Agent Telepro',
+  [UserRole.COMMERCIAL]: ' Commercial',
+  [UserRole.MARKETING_AGENT]: 'Agent Marketing',
+  [UserRole.QUALITE_AGENT]: ' Agent Qualité',
+  [UserRole.TECH_SUPPORT]: ' Support Technique',
+  [UserRole.MEMBER]: ' Membre standard',
 };
 
 /* ================= TYPES ================= */
