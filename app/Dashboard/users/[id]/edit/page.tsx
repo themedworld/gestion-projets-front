@@ -12,7 +12,7 @@ export default function EditUserPagePage() {
   return (
     <div className="p-10">
       <EditUserPage id={id} />
-      <MemberProfileForm userId={id} onBack={() => router.back()} />
+
     </div>
   );
 }

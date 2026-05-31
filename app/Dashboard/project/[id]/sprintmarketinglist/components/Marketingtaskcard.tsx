@@ -165,7 +165,7 @@ export const MarketingTaskCard: React.FC<MarketingTaskCardProps> = ({
                 }`}
               >
                 {task.delayHours > 0
-                  ? `⚠️ Retard: +${task.delayHours.toFixed(1)}h`
+                  ? `⚠️ Retard: +${task.delayHours}h`
                   : `✨ Avance: ${Math.abs(task.delayHours).toFixed(1)}h`}
               </div>
             )}

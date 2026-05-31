@@ -17,7 +17,7 @@ export const ProjectSummaryPanel: React.FC<Props> = ({ metrics }) => {
 
   const fmt = (n: number) => n.toLocaleString('fr-FR', { maximumFractionDigits: 1 });
   const fmtCost = (n: number) =>
-    n.toLocaleString('fr-FR', { style: 'currency', currency: 'USD', maximumFractionDigits: 0 });
+    n.toLocaleString('fr-FR', { style: 'currency', currency: 'TND', maximumFractionDigits: 0 });
 
   const errors   = metrics.warnings.filter((w) => w.severity === 'error');
   const warnings = metrics.warnings.filter((w) => w.severity === 'warning');

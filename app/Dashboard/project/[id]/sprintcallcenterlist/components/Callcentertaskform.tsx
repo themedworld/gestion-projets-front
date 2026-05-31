@@ -210,7 +210,7 @@ export const CallCenterTaskForm: React.FC<CallCenterTaskFormProps> = ({
         <div className="md:col-span-2">
           <label className={labelClass}>Priorité</label>
           <select
-            className={inputClass} value={task.priority}
+            className={inputClass} value={task.priority ?? ''}
             onChange={(e) => onChange('priority', e.target.value as TaskCallCenterPriority)}
           >
             <option value="LOW">Basse</option>

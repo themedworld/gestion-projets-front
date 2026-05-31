@@ -410,7 +410,13 @@ const handleStartEditTask = (task: Task, sprintId: number) => {
       setLoading(false);
     }
   };
-
+// Avec les autres helpers (après getAuthToken)
+// ✅ Envoie une ISO string complète — TypeORM la cast automatiquement en Date
+const formatDate = (val: string | null | undefined): string | null => {
+  if (!val) return null;
+  const d = new Date(val);
+  return isNaN(d.getTime()) ? null : d.toISOString(); // "2024-01-20T00:00:00.000Z"
+};
   const handleDeleteTask = async (taskId: number, sprintId: number) => {
     if (!confirm('Êtes-vous sûr de vouloir supprimer cette tâche?')) return;
     setLoading(true);
@@ -516,8 +522,8 @@ const scheduledEndDate = t.scheduledEndDate
       delayHours: Number(t.delayHours ?? 0) || 0,
 
       // Date (only scheduledEndDate exists in the entity)
-      scheduledStartDate,
-      scheduledEndDate,
+scheduledStartDate: formatDate(t.scheduledStartDate ?? null),
+scheduledEndDate: formatDate(t.scheduledEndDate ?? null),
       // scheduledStartDate intentionally omitted — no column in DB
       // aiEstimatedHours  intentionally omitted — not a DB column
 

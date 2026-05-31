@@ -1,7 +1,7 @@
 'use client';
 // ─── CallCenterSprintsPage.tsx ────────────────────────────────────────────────
 
-import React, { useState, useEffect, useCallback } from 'react';
+import React, { useState, useEffect, useCallback, useRef } from 'react';
 import { useParams, useRouter } from 'next/navigation';
 import { ChevronLeft, Plus, AlertCircle, X, ListTodo } from 'lucide-react';
 
@@ -39,6 +39,13 @@ async function apiFetch(url: string, options: RequestInit): Promise<Response> {
   return res;
 }
 
+// ── Convertit "2026-05-16" ou "2026-05-16T..." en ISO string ─────────────────
+const toISO = (v: string | null | undefined): string | null => {
+  if (!v) return null;
+  const d = new Date(v);
+  return isNaN(d.getTime()) ? null : d.toISOString();
+};
+
 const CallCenterSprintsPage: React.FC = () => {
   const params    = useParams() as { id?: string };
   const projectId = params?.id;
@@ -50,6 +57,12 @@ const CallCenterSprintsPage: React.FC = () => {
   const [metrics,             setMetrics]             = useState<CallCenterProjectMetrics | null>(null);
   const [projectStartDate,    setProjectStartDate]    = useState<string | null>(null);
   const [projectEndDate,      setProjectEndDate]      = useState<string | null>(null);
+
+  // ── Données réelles du projet CallCenter (domainDetails) ─────────────────
+  const [ccProjectDetails, setCcProjectDetails] = useState<Record<string, any> | null>(null);
+
+  // Ref stable pour members — évite les re-renders en cascade
+  const membersRef = useRef<ProjectMember[]>([]);
 
   const [loading,    setLoading]    = useState(false);
   const [estimating, setEstimating] = useState(false);
@@ -85,7 +98,7 @@ const CallCenterSprintsPage: React.FC = () => {
           },
           body: JSON.stringify({
             estimatedDurationDays: m.durationDays,
-            estimatedBudget:       Math.round(aiCost * 100) / 100,
+            estimatedBudget:       Math.round(aiCost),
             teamSize:              m.teamSize,
           }),
         });
@@ -97,40 +110,45 @@ const CallCenterSprintsPage: React.FC = () => {
   );
 
   // ── refreshCallCenterMetrics ──────────────────────────────────────────────
+  // Stratégie hybride :
+  //   • KPIs métier (CSAT, FCR, callTypes, SLA…) → données réelles du projet (ccProjectDetails)
+  //   • Données dynamiques (agents, types de tâches) → calculées depuis les sprints
   const refreshCallCenterMetrics = useCallback(
-    async (updatedSprints: SprintCallCenter[]) => {
+    async (updatedSprints: SprintCallCenter[], details: Record<string, any> | null) => {
       if (updatedSprints.length === 0) { setMetrics(null); return; }
 
-      const m = computeCallCenterProjectMetrics(updatedSprints, members, members.length);
+      const currentMembers = membersRef.current;
+      const m = computeCallCenterProjectMetrics(updatedSprints, currentMembers, currentMembers.length);
       setMetrics(m);
       if (m.totalHours === 0) return;
 
+      // ── Données dynamiques depuis les sprints ──────────────────────────────
       const allTypes = [
         ...new Set(
           updatedSprints.flatMap((sp) => sp.tasks.map((t) => t.type)).filter(Boolean),
         ),
       ].join(';');
 
-      const totalQuality = updatedSprints.reduce(
-        (s, sp) => s + safeNum(sp.qualityScoreTarget), 0,
+      const totalCallVolume = updatedSprints.reduce(
+        (s, sp) => s + safeNum(sp.expectedCallVolume), 0,
       );
-      const totalConv = updatedSprints.reduce(
-        (s, sp) => s + safeNum(sp.targetConversionRate), 0,
-      );
-      const count = Math.max(updatedSprints.length, 1);
 
+      // ── Stratégie hybride ─────────────────────────────────────────────────
       const sprintsMeta = {
-        numberOfAgents:       m.teamSize,
-        numberOfCallsPerDay:  updatedSprints.reduce(
-          (s, sp) => s + safeNum(sp.expectedCallVolume), 0,
-        ),
-        averageHandleTimeSec: 300,
-        slaTargetSeconds:     120,
-        risksScore:           0.3,
-        callTypes:            allTypes || 'Support',
-        dependencies:         'CRM',
-        CSAT:                 totalQuality / count,
-        FCR:                  totalConv / count,
+        // ✅ Dynamique — reflète le travail réel des sprints
+        numberOfAgents:      m.teamSize,
+        callTypes:           allTypes || details?.callTypes || 'Support',
+
+        // ✅ Données réelles du projet — configurées par le manager
+        numberOfCallsPerDay:  safeNum(details?.numberOfCallsPerDay)  || totalCallVolume || 100,
+        averageHandleTimeSec: safeNum(details?.averageHandleTimeSec) || 300,
+        slaTargetSeconds:     safeNum(details?.slaTargetSeconds)     || 120,
+        risksScore:           safeNum(details?.risksScore)           || 0.3,
+        dependencies:         details?.dependencies                  || 'CRM',
+
+        // ✅ KPIs métier — toujours depuis le projet, jamais calculés depuis les sprints
+        CSAT: safeNum(details?.CSAT) || 80,
+        FCR:  safeNum(details?.FCR)  || 0.7,
       };
 
       const aiCost    = await estimateCallCenterProjectCost(m.durationDays, m.teamSize, sprintsMeta);
@@ -139,12 +157,18 @@ const CallCenterSprintsPage: React.FC = () => {
       await persistCallCenterMetrics(m, finalCost);
       setMetrics({ ...m, estimatedBudget: finalCost });
     },
-    [members, persistCallCenterMetrics],
+    [persistCallCenterMetrics],
+    // ✅ members retiré des dépendances — on utilise membersRef.current à la place
   );
 
+  // ── Debounce sur le useEffect pour éviter les appels en rafale ───────────
   useEffect(() => {
-    refreshCallCenterMetrics(sprints);
-  }, [sprints, refreshCallCenterMetrics]);
+    if (sprints.length === 0) return;
+    const timer = setTimeout(() => {
+      refreshCallCenterMetrics(sprints, ccProjectDetails);
+    }, 1500);
+    return () => clearTimeout(timer);
+  }, [sprints, ccProjectDetails, refreshCallCenterMetrics]);
 
   // ── fetchSprints ──────────────────────────────────────────────────────────
   const fetchSprints = useCallback(async (ccId: number) => {
@@ -177,11 +201,19 @@ const CallCenterSprintsPage: React.FC = () => {
         });
         if (res.ok) {
           const data = await res.json();
-          setMembers(data.project?.assignedTo ?? []);
+
+          const projectMembers = data.project?.assignedTo ?? [];
+          setMembers(projectMembers);
+          membersRef.current = projectMembers; // ← stable ref
+
           setProjectStartDate(data.project?.startDate ?? null);
           setProjectEndDate(data.project?.endDate     ?? null);
 
-          const ccId: number | undefined = data.domainDetails?.id;
+          // ✅ Sauvegarder les données réelles du projet CallCenter
+          const details = data.domainDetails ?? null;
+          setCcProjectDetails(details);
+
+          const ccId: number | undefined = details?.id;
           if (ccId) {
             setCallCenterProjectId(ccId);
             fetchSprints(ccId);
@@ -243,8 +275,8 @@ const CallCenterSprintsPage: React.FC = () => {
         targetConversionRate: Number(newSprint.targetConversionRate ?? 0),
         budgetAllocated:      Number(newSprint.budgetAllocated      ?? 0),
         qualityScoreTarget:   Number(newSprint.qualityScoreTarget   ?? 0),
-  startDate:            toISO(newSprint.startDate)!,   // ← toISO
-  endDate:              toISO(newSprint.endDate)!,     // ← toISO
+        startDate:            toISO(newSprint.startDate)!,
+        endDate:              toISO(newSprint.endDate)!,
         tasks: tasksWithAI.map(serializeTask),
       }];
 
@@ -315,8 +347,8 @@ const CallCenterSprintsPage: React.FC = () => {
           headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
           body: JSON.stringify({
             name:                 editingSprintData.name,
-  startDate:            toISO(editingSprintData.startDate)!,   // ← toISO
-  endDate:              toISO(editingSprintData.endDate)!,
+            startDate:            toISO(editingSprintData.startDate)!,
+            endDate:              toISO(editingSprintData.endDate)!,
             status:               editingSprintData.status,
             priority:             editingSprintData.priority,
             complexity:           editingSprintData.complexity,
@@ -362,12 +394,7 @@ const CallCenterSprintsPage: React.FC = () => {
       setLoading(false);
     }
   };
-// ── Convertit "2026-05-16" ou "2026-05-16T..." en ISO string ──────────────
-const toISO = (v: string | null | undefined): string | null => {
-  if (!v) return null;
-  const d = new Date(v);
-  return isNaN(d.getTime()) ? null : d.toISOString();
-};
+
   const handleEstimateEditTask = async (idx: number) => {
     setEstimatingEditIdx(idx);
     const hours = await estimateCallCenterTaskHours(editingSprintTasks[idx]);
@@ -423,7 +450,6 @@ const toISO = (v: string | null | undefined): string | null => {
       ...editingTaskData,
       aiEstimatedHours: hours ?? editingTaskData.aiEstimatedHours,
       estimatedHours:   hours ?? editingTaskData.estimatedHours ?? 0,
-      priority:         Number(editingTaskData.priority ?? 0), 
     };
 
     setLoading(true);

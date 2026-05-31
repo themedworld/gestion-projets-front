@@ -116,7 +116,7 @@ export function serializeTask(t: TaskCallCenter): Record<string, unknown> {
     description:           t.description    || null,
     type:                  t.type,
     status:                t.status,
-    priority:         Number(t.priority         ?? 0), 
+    priority:              t.priority,
     estimatedHours: Math.round(safeNum(t.aiEstimatedHours ?? t.estimatedHours)),
     targetAgentCount:      safeNum(t.targetAgentCount),
     expectedCallsPerAgent: safeNum(t.expectedCallsPerAgent),

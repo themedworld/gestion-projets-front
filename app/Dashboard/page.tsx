@@ -1,4 +1,4 @@
-import Dashboard from "@/component/Dashboard"; // adapte le chemin selon ton projet
+import SuperAdminDashboard from "@/component/Dashboard"; // adapte le chemin selon ton projet
 
 export const metadata = {
   title: "Leads",
@@ -6,5 +6,5 @@ export const metadata = {
 };
 
 export default function LeadsListPage() {
-  return <Dashboard />;
+  return <SuperAdminDashboard/>;
 }
