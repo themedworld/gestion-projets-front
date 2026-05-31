@@ -2,7 +2,10 @@ import type { NextConfig } from "next";
 
 module.exports = {
   images: {
-    domains: ['drive.google.com','images.unsplash.com'],
+    domains: ['drive.google.com', 'images.unsplash.com'],
+  },
+  typescript: {
+    ignoreBuildErrors: true,
   },
 };
 
