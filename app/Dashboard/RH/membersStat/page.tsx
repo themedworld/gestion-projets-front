@@ -297,7 +297,7 @@ bucket.count++;
               <YAxis tick={{ fontSize: 11 }} allowDecimals={false}/>
               <Tooltip
                 contentStyle={{ borderRadius: 12, border: "1px solid #e2e8f0", fontSize: 12 }}
-                formatter={(v: number) => [v, "Employés"]}
+                formatter={(v: ValueType) => [v ?? 0, "Employés"]}
               />
               <Bar dataKey="count" name="Employés" radius={[6, 6, 0, 0]} maxBarSize={48}>
                 {gradeDist.map((entry, i) => <Cell key={i} fill={entry.fill} />)}
@@ -323,7 +323,7 @@ bucket.count++;
               <XAxis dataKey="range" tick={{ fontSize: 11 }}/>
               <YAxis tick={{ fontSize: 11 }} allowDecimals={false}/>
               <Tooltip contentStyle={{ borderRadius: 12, border: "1px solid #e2e8f0", fontSize: 12 }}
-                formatter={(v: number) => [v, "Employés"]}/>
+                formatter={(v: ValueType) => [v ?? 0, "Employés"]}/>
               <Area type="monotone" dataKey="count" name="Employés" stroke="#6366f1"
                 fill="url(#scoreGrad)" strokeWidth={2.5}/>
             </AreaChart>
