@@ -8,126 +8,127 @@ const Header = () => {
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
   const [scrolled, setScrolled] = useState(false);
 
-  // Détection du scroll pour changer le style de la navbar
   useEffect(() => {
-    const handleScroll = () => {
-      setScrolled(window.scrollY > 20);
-    };
+    const handleScroll = () => setScrolled(window.scrollY > 20);
     window.addEventListener('scroll', handleScroll);
     return () => window.removeEventListener('scroll', handleScroll);
   }, []);
 
   return (
     <nav
-      className={`fixed w-full z-50 transition-all duration-300 ease-in-out ${
+      className={`fixed w-full z-50 transition-all duration-300 ${
         scrolled
-          ? 'bg-white/90 backdrop-blur-md shadow-md border-b border-gray-100 py-2'
+          ? 'bg-white/90 backdrop-blur-lg shadow-lg shadow-slate-200/20 py-2'
           : 'bg-transparent py-4'
       }`}
     >
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-        <div className="flex justify-between items-center h-16">
-          
-          {/* --- PARTIE GAUCHE : LOGO --- */}
-          <div className="flex-shrink-0 flex items-center">
-            <Link href="/" className="flex items-center gap-3 group">
-              {/* Conteneur Image avec animation légère au survol */}
-              <div className="relative w-20 h-20 transition-transform duration-300 group-hover:scale-110">
-                <Image
-                  src="/logo.png"
-                  alt="DataPilot Logo"
-                  width={100} // Augmenté pour la netteté retina
-                  height={100}
-                  className="object-contain w-full h-full"
-                  priority
-                />
-              </div>
+        <div className="flex justify-between items-center">
+          {/* LOGO */}
+          <Link href="/" className="flex items-center gap-3 group">
+            <div className="relative w-12 h-12 transition-all duration-300 group-hover:scale-105">
+              <div className="absolute inset-0 bg-gradient-to-br from-indigo-500 to-purple-600 rounded-xl opacity-10 group-hover:opacity-20 transition-opacity" />
+              <Image
+                src="/logo.png"
+                alt="DataPilot Logo"
+                width={48}
+                height={48}
+                className="object-contain w-full h-full relative z-10"
+                priority
+              />
+            </div>
+            <span className="text-xl font-bold bg-gradient-to-r from-slate-900 to-slate-700 bg-clip-text text-transparent">
+              DataPilot
+            </span>
+          </Link>
 
+          {/* NAV DESKTOP */}
+          <div className="hidden md:flex items-center gap-1">
+            <Link
+              href="/condidat"
+              className="relative group px-4 py-2.5 rounded-lg text-sm font-medium transition-all duration-300"
+            >
+              <span className="relative z-10 flex items-center gap-2 text-slate-700 group-hover:text-indigo-600">
+                <span className="relative flex h-2 w-2">
+                  <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-indigo-400 opacity-75"></span>
+                  <span className="relative inline-flex rounded-full h-2 w-2 bg-indigo-500"></span>
+                </span>
+                Offres d'emploi
+              </span>
+              <span className="absolute inset-0 bg-indigo-50 rounded-lg scale-0 group-hover:scale-100 transition-transform duration-300" />
             </Link>
-          </div>
 
-          {/* --- PARTIE DROITE : MENU DESKTOP --- */}
-          <div className="hidden md:flex items-center space-x-8">
- <Link
-  href="/about"
-  className="inline-flex items-center gap-2 px-5 py-2.5 rounded-md
-             bg-blue-600 hover:bg-blue-500
-             text-sm font-medium text-white
-             transition-colors duration-200
-             focus:outline-none focus:ring-2 focus:ring-blue-500/50"
->
-  À propos
-  <svg
-    className="w-4 h-4 transition-transform group-hover:translate-x-0.5"
-    fill="none"
-    stroke="currentColor"
-    viewBox="0 0 24 24"
-  >
-    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2"
-      d="M13 7l5 5m0 0l-5 5m5-5H6" />
-  </svg>
-</Link>
+            <Link
+              href="/about"
+              className="relative group px-4 py-2.5 rounded-lg text-sm font-medium transition-all duration-300"
+            >
+              <span className="relative z-10 text-slate-700 group-hover:text-indigo-600">
+                À propos
+              </span>
+              <span className="absolute inset-0 bg-slate-50 rounded-lg scale-0 group-hover:scale-100 transition-transform duration-300" />
+            </Link>
+
+            <div className="w-px h-6 bg-slate-200 mx-2" />
 
             <Link
               href="/login"
-              className="relative inline-flex items-center justify-center px-6 py-2.5 overflow-hidden font-semibold text-white transition-all duration-300 ease-out bg-slate-900 rounded-full group hover:shadow-lg hover:shadow-blue-500/40"
+              className="relative group px-6 py-2.5 rounded-lg overflow-hidden"
             >
-              {/* Fond dégradé animé */}
-              <span className="absolute inset-0 w-full h-full bg-gradient-to-br from-blue-600 via-indigo-600 to-teal-500"></span>
-              <span className="absolute bottom-0 right-0 block w-64 h-64 mb-32 mr-4 transition duration-500 origin-bottom-left transform rotate-45 translate-x-24 bg-pink-500 opacity-30 group-hover:rotate-90 ease"></span>
-              <span className="relative flex items-center gap-2">
+              <span className="absolute inset-0 bg-gradient-to-r from-indigo-600 to-purple-600" />
+              <span className="absolute inset-0 bg-gradient-to-r from-indigo-700 to-purple-700 opacity-0 group-hover:opacity-100 transition-opacity duration-300" />
+              <span className="relative z-10 flex items-center gap-2 text-white text-sm font-semibold">
                 Se connecter
-                <svg className="w-4 h-4 transition-transform duration-300 group-hover:translate-x-1" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M13 7l5 5m0 0l-5 5m5-5H6"></path></svg>
+                <svg className="w-4 h-4 transition-transform duration-300 group-hover:translate-x-1" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M13 7l5 5m0 0l-5 5m5-5H6" />
+                </svg>
               </span>
             </Link>
           </div>
 
-          {/* --- BOUTON MENU MOBILE --- */}
-          <div className="md:hidden flex items-center">
-            <button
-              onClick={() => setIsMobileMenuOpen(!isMobileMenuOpen)}
-              className="text-slate-600 hover:text-blue-600 focus:outline-none p-2 rounded-md hover:bg-slate-50 transition-colors"
-            >
-              <span className="sr-only">Ouvrir le menu</span>
-              {isMobileMenuOpen ? (
-                <svg className="h-7 w-7" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
-                </svg>
-              ) : (
-                <svg className="h-7 w-7" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 6h16M4 12h16M4 18h7" />
-                </svg>
-              )}
-            </button>
-          </div>
+          {/* BURGER MOBILE */}
+          <button
+            onClick={() => setIsMobileMenuOpen(!isMobileMenuOpen)}
+            className="md:hidden relative w-10 h-10 flex items-center justify-center rounded-lg hover:bg-slate-100 transition-colors"
+          >
+            <div className="w-5 h-5 relative">
+              <span className={`absolute w-5 h-0.5 bg-slate-600 transform transition-all duration-300 ${
+                isMobileMenuOpen ? 'rotate-45 top-2.5' : 'top-0'
+              }`} />
+              <span className={`absolute w-5 h-0.5 bg-slate-600 top-2 transition-all duration-300 ${
+                isMobileMenuOpen ? 'opacity-0' : 'opacity-100'
+              }`} />
+              <span className={`absolute w-5 h-0.5 bg-slate-600 transform transition-all duration-300 ${
+                isMobileMenuOpen ? '-rotate-45 top-2.5' : 'top-4'
+              }`} />
+            </div>
+          </button>
         </div>
       </div>
 
-      {/* --- MENU MOBILE (Backdrop & Slide) --- */}
-      <div 
-        className={`md:hidden absolute top-full left-0 w-full bg-white border-t border-gray-100 shadow-xl transition-all duration-300 ease-in-out origin-top ${
-          isMobileMenuOpen ? 'opacity-100 scale-y-100 translate-y-0' : 'opacity-0 scale-y-0 -translate-y-2 pointer-events-none'
-        }`}
-      >
-        <div className="px-4 py-6 space-y-3">
+      {/* MENU MOBILE */}
+      <div className={`md:hidden transition-all duration-300 ${
+        isMobileMenuOpen ? 'max-h-96 opacity-100' : 'max-h-0 opacity-0'
+      } overflow-hidden`}>
+        <div className="px-4 py-4 space-y-1 bg-white/95 backdrop-blur-lg border-t border-slate-100">
+          <Link
+            href="/condidat"
+            className="flex items-center gap-3 px-4 py-3 rounded-lg text-sm font-medium text-indigo-600 bg-indigo-50"
+            onClick={() => setIsMobileMenuOpen(false)}
+          >
+            <span className="h-2 w-2 rounded-full bg-indigo-500 animate-pulse" />
+            Offres d'emploi
+          </Link>
           <Link
             href="/about"
-            className="block px-4 py-3 rounded-lg text-base font-medium text-slate-600 hover:text-blue-600 hover:bg-blue-50 transition-all"
+            className="block px-4 py-3 rounded-lg text-sm font-medium text-slate-700 hover:bg-slate-50 transition-colors"
             onClick={() => setIsMobileMenuOpen(false)}
           >
-            About Us
+            À propos
           </Link>
-          <Link
-            href="/contact"
-            className="block px-4 py-3 rounded-lg text-base font-medium text-slate-600 hover:text-blue-600 hover:bg-blue-50 transition-all"
-            onClick={() => setIsMobileMenuOpen(false)}
-          >
-            Contactez-nous
-          </Link>
-          <div className="pt-4 border-t border-gray-100">
+          <div className="pt-2">
             <Link
               href="/login"
-              className="block w-full text-center px-4 py-3 rounded-lg text-base font-bold text-white bg-gradient-to-r from-blue-600 to-teal-500 shadow-md hover:shadow-lg transition-all"
+              className="block w-full text-center px-4 py-3 rounded-lg text-sm font-semibold text-white bg-gradient-to-r from-indigo-600 to-purple-600"
               onClick={() => setIsMobileMenuOpen(false)}
             >
               Se connecter

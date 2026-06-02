@@ -8,7 +8,7 @@ import {
 import {
   CheckCircle2, Clock, AlertTriangle, TrendingUp, TrendingDown,
   Layers, Zap, Target, Activity, RefreshCw, ChevronRight,
-  BarChart2, Users, Calendar,
+  BarChart2, Users, Calendar, AlertCircle,
 } from 'lucide-react';
 
 // ─── Types ────────────────────────────────────────────────────────────────────
@@ -83,6 +83,18 @@ const api = (path: string) =>
 
 function pct(a: number, b: number) {
   return b === 0 ? 0 : Math.round((a / b) * 100);
+}
+
+// ─── Date helper ──────────────────────────────────────────────────────────────
+
+function getProjectDelay(project: Project): number {
+  if (!project.endDate || project.status === 'completed' || project.status === 'cancelled') return 0;
+  const endDate = new Date(project.endDate).getTime();
+  const now = Date.now();
+  if (now > endDate) {
+    return Math.ceil((now - endDate) / (1000 * 60 * 60 * 24)); // retard en jours
+  }
+  return 0;
 }
 
 // ─── KPI Card ─────────────────────────────────────────────────────────────────
@@ -213,6 +225,17 @@ export default function PMStatsPage() {
     return Object.entries(map).map(([name, value]) => ({ name, value }));
   }, [projects]);
 
+  // Projets en retard
+  const overdueProjects = useMemo(() => {
+    return projects.filter(p => getProjectDelay(p) > 0);
+  }, [projects]);
+
+  const overdueByDomain = useMemo(() => {
+    const map: Record<Domain, number> = { IT: 0, Marketing: 0, CallCenter: 0 };
+    overdueProjects.forEach(p => { map[p.domain]++; });
+    return Object.entries(map).map(([domain, count]) => ({ domain, overdue: count }));
+  }, [overdueProjects]);
+
   // Tasks: on-time vs late per domain
   const tasksByDomain = useMemo(() => {
     const result: Record<Domain, { onTime: number; late: number; blocked: number; done: number; total: number }> = {
@@ -250,36 +273,39 @@ export default function PMStatsPage() {
       if (!p.endDate) return;
       const month = p.endDate.slice(0, 7);
       if (!byMonth[month]) byMonth[month] = { onTime: 0, late: 0, incomplete: 0 };
-      if (p.status === 'completed') byMonth[month].onTime++;
-      else if (['in_progress', 'planned'].includes(p.status)) byMonth[month].incomplete++;
-      else byMonth[month].late++;
+      if (p.status === 'completed') {
+        // Check if projet was completed on time (delay = 0)
+        byMonth[month].onTime++;
+      } else if (['in_progress', 'planned'].includes(p.status)) {
+        byMonth[month].incomplete++;
+      } else {
+        byMonth[month].late++;
+      }
     });
     return Object.entries(byMonth)
       .sort(([a], [b]) => a.localeCompare(b))
       .map(([month, v]) => ({ month, ...v }));
   }, [projects]);
 
-  // Average delay per domain
+  // Average delay per domain (en jours pour les projets en retard)
   const avgDelayByDomain = useMemo(() => {
     const map: Record<Domain, { total: number; count: number }> = {
       IT: { total: 0, count: 0 }, Marketing: { total: 0, count: 0 }, CallCenter: { total: 0, count: 0 },
     };
-    projects.forEach(p => {
+    overdueProjects.forEach(p => {
       const dom = p.domain as Domain;
-      (sprints[p.id] ?? []).forEach(s =>
-        (s.tasks ?? []).forEach(t => {
-          if (t.status === 'DONE' && t.delayHours !== undefined) {
-            map[dom].total += t.delayHours;
-            map[dom].count++;
-          }
-        })
-      );
+      const delayDays = getProjectDelay(p);
+      if (delayDays > 0) {
+        map[dom].total += delayDays;
+        map[dom].count++;
+      }
     });
     return Object.entries(map).map(([domain, v]) => ({
       domain,
       avgDelay: v.count > 0 ? Math.round((v.total / v.count) * 10) / 10 : 0,
+      count: v.count,
     }));
-  }, [projects, sprints]);
+  }, [overdueProjects]);
 
   // Radar — project health per domain
   const radarData = useMemo(() => {
@@ -307,6 +333,14 @@ export default function PMStatsPage() {
   // PM Decisions
   const decisions = useMemo(() => {
     const result: { level: 'danger' | 'warn' | 'ok'; text: string }[] = [];
+    
+    // Projets en retard
+    if (overdueProjects.length > 3) {
+      result.push({ level: 'danger', text: `${overdueProjects.length} projets en retard — action immédiate requise` });
+    } else if (overdueProjects.length > 0) {
+      result.push({ level: 'warn', text: `${overdueProjects.length} projet(s) en retard — suivi nécessaire` });
+    }
+
     if (allBlocked.length > 5)
       result.push({ level: 'danger', text: `${allBlocked.length} tâches bloquées — action immédiate requise` });
     if (globalOnTimePct < 60)
@@ -320,10 +354,10 @@ export default function PMStatsPage() {
     if (result.length === 0)
       result.push({ level: 'ok', text: 'Bonne santé globale — continuer le suivi hebdomadaire' });
     return result;
-  }, [allBlocked, globalOnTimePct, tasksByDomain]);
+  }, [allBlocked, globalOnTimePct, tasksByDomain, overdueProjects]);
 
   if (loading) return (
-    <div className="min-h-screen bg-slate-50 flex items-center justify-center">
+    <div className="min-h-screen bg-gradient-to-br from-slate-50 to-slate-100 flex items-center justify-center">
       <div className="flex items-center gap-3 text-slate-500 text-sm">
         <RefreshCw className="animate-spin" size={18} />
         Chargement des données…
@@ -334,7 +368,7 @@ export default function PMStatsPage() {
   // ── Render ─────────────────────────────────────────────────────────────────
 
   return (
-    <div className="min-h-screen bg-slate-50 py-8 px-4">
+    <div className="min-h-screen bg-gradient-to-br from-slate-50 to-slate-100 py-8 px-4">
       <div className="max-w-7xl mx-auto space-y-8">
 
         {/* ── Header ── */}
@@ -367,14 +401,44 @@ export default function PMStatsPage() {
 
         {/* ── KPIs ── */}
         <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
-          <KPI label="Total projets"   value={totalProjects}      icon={<Layers size={15}/>}       color="indigo" />
-          <KPI label="Terminés"        value={completedProjects}  icon={<CheckCircle2 size={15}/>} color="green"
+          <KPI label="Total projets"      value={totalProjects}      icon={<Layers size={15}/>}       color="indigo" />
+          <KPI label="Terminés"           value={completedProjects}  icon={<CheckCircle2 size={15}/>} color="green"
                sub={`${pct(completedProjects, totalProjects)}% du total`} />
-          <KPI label="En cours"        value={inProgressProjects} icon={<Activity size={15}/>}     color="sky" />
-          <KPI label="Taux à temps"    value={`${globalOnTimePct}%`} icon={<Target size={15}/>}
+          <KPI label="En cours"           value={inProgressProjects} icon={<Activity size={15}/>}     color="sky" />
+          <KPI label="Taux à temps"       value={`${globalOnTimePct}%`} icon={<Target size={15}/>}
                color={globalOnTimePct >= 70 ? 'green' : 'red'}
                sub={`${allLate.length} tâches en retard`} trend={allLate.length} />
         </div>
+
+        {/* ── Projets en retard banner ── */}
+        {overdueProjects.length > 0 && (
+          <div className="bg-gradient-to-r from-red-50 to-pink-50 border-2 border-red-200 rounded-2xl p-5 shadow-sm">
+            <div className="flex items-start gap-3">
+              <AlertCircle className="text-red-600 mt-0.5 flex-shrink-0" size={20} />
+              <div className="flex-1">
+                <h3 className="font-bold text-red-900 mb-2">⚠️ Projets en retard détectés</h3>
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-2">
+                  {overdueProjects.map(p => (
+                    <div key={p.id} className="bg-white/70 rounded-lg p-3 border border-red-100">
+                      <p className="font-semibold text-slate-900 text-sm">{p.name}</p>
+                      <div className="flex items-center gap-2 mt-1 text-xs text-slate-600">
+                        <span className={`px-2 py-0.5 rounded-full font-medium ${DOMAIN_CFG[p.domain].bg} ${DOMAIN_CFG[p.domain].color}`}>
+                          {DOMAIN_CFG[p.domain].icon} {p.domain}
+                        </span>
+                        <span className="text-red-600 font-bold">{getProjectDelay(p)} jour(s) de retard</span>
+                      </div>
+                      {p.endDate && (
+                        <p className="text-[10px] text-slate-400 mt-1">
+                          Échéance: {new Date(p.endDate).toLocaleDateString('fr-FR')}
+                        </p>
+                      )}
+                    </div>
+                  ))}
+                </div>
+              </div>
+            </div>
+          </div>
+        )}
 
         {/* ── Décisions PM ── */}
         <div className="bg-white border border-slate-200 rounded-2xl p-5 shadow-sm">
@@ -420,8 +484,27 @@ export default function PMStatsPage() {
           )}
         </div>
 
-        {/* ── 2-col: Domain dist + Status dist ── */}
+        {/* ── 2-col: Overdue projects per domain + Domain dist ── */}
         <div className="grid grid-cols-1 md:grid-cols-2 gap-5">
+
+          {/* Projets en retard par domaine */}
+          <div className="bg-white border border-slate-200 rounded-2xl p-5 shadow-sm">
+            <SectionTitle icon="⏱️" title="Projets en retard par domaine" />
+            <ResponsiveContainer width="100%" height={220}>
+              <BarChart data={overdueByDomain} margin={{ top: 5, right: 20, bottom: 5, left: 0 }}>
+                <CartesianGrid strokeDasharray="3 3" stroke="#f1f5f9"/>
+                <XAxis dataKey="domain" tick={{ fontSize: 12 }}/>
+                <YAxis tick={{ fontSize: 11 }} allowDecimals={false}/>
+                <Tooltip contentStyle={{ borderRadius: 12, fontSize: 12 }}/>
+                <Bar dataKey="overdue" name="Projets en retard" radius={[6,6,0,0]}>
+                  {overdueByDomain.map((entry, i) => (
+                    <Cell key={i}
+                      fill={entry.overdue > 0 ? '#ef4444' : '#22c55e'} />
+                  ))}
+                </Bar>
+              </BarChart>
+            </ResponsiveContainer>
+          </div>
 
           {/* Distribution par domaine */}
           <div className="bg-white border border-slate-200 rounded-2xl p-5 shadow-sm">
@@ -441,24 +524,24 @@ export default function PMStatsPage() {
               </PieChart>
             </ResponsiveContainer>
           </div>
+        </div>
 
-          {/* Distribution par statut */}
-          <div className="bg-white border border-slate-200 rounded-2xl p-5 shadow-sm">
-            <SectionTitle icon="📊" title="Statuts des projets" />
-            <ResponsiveContainer width="100%" height={220}>
-              <BarChart data={statusDist} layout="vertical" margin={{ left: 10 }}>
-                <CartesianGrid strokeDasharray="3 3" stroke="#f1f5f9" horizontal={false}/>
-                <XAxis type="number" tick={{ fontSize: 11 }} allowDecimals={false}/>
-                <YAxis type="category" dataKey="name" tick={{ fontSize: 11 }} width={90}/>
-                <Tooltip contentStyle={{ borderRadius: 12, fontSize: 12 }}/>
-                <Bar dataKey="value" name="Projets" radius={[0, 6, 6, 0]}>
-                  {statusDist.map((entry, i) => (
-                    <Cell key={i} fill={STATUS_COLOR[entry.name] ?? '#94a3b8'} />
-                  ))}
-                </Bar>
-              </BarChart>
-            </ResponsiveContainer>
-          </div>
+        {/* ── Distribution par statut ── */}
+        <div className="bg-white border border-slate-200 rounded-2xl p-5 shadow-sm">
+          <SectionTitle icon="📊" title="Statuts des projets" />
+          <ResponsiveContainer width="100%" height={220}>
+            <BarChart data={statusDist} layout="vertical" margin={{ left: 10 }}>
+              <CartesianGrid strokeDasharray="3 3" stroke="#f1f5f9" horizontal={false}/>
+              <XAxis type="number" tick={{ fontSize: 11 }} allowDecimals={false}/>
+              <YAxis type="category" dataKey="name" tick={{ fontSize: 11 }} width={90}/>
+              <Tooltip contentStyle={{ borderRadius: 12, fontSize: 12 }}/>
+              <Bar dataKey="value" name="Projets" radius={[0, 6, 6, 0]}>
+                {statusDist.map((entry, i) => (
+                  <Cell key={i} fill={STATUS_COLOR[entry.name] ?? '#94a3b8'} />
+                ))}
+              </Bar>
+            </BarChart>
+          </ResponsiveContainer>
         </div>
 
         {/* ── Tasks: on-time vs late per domain ── */}
@@ -482,24 +565,30 @@ export default function PMStatsPage() {
         {/* ── Average delay + Radar ── */}
         <div className="grid grid-cols-1 md:grid-cols-2 gap-5">
 
-          {/* Délai moyen par domaine */}
+          {/* Délai moyen par domaine (projets en retard) */}
           <div className="bg-white border border-slate-200 rounded-2xl p-5 shadow-sm">
-            <SectionTitle icon="🕐" title="Délai moyen par domaine (heures)" />
-            <ResponsiveContainer width="100%" height={220}>
-              <BarChart data={avgDelayByDomain}>
-                <CartesianGrid strokeDasharray="3 3" stroke="#f1f5f9"/>
-                <XAxis dataKey="domain" tick={{ fontSize: 12 }}/>
-                <YAxis tick={{ fontSize: 11 }}/>
-                <Tooltip contentStyle={{ borderRadius: 12, fontSize: 12 }}
-                  formatter={(v: number) => [`${v}h`, 'Délai moyen']}/>
-                <Bar dataKey="avgDelay" name="Délai moyen (h)" radius={[6,6,0,0]}>
-                  {avgDelayByDomain.map((entry, i) => (
-                    <Cell key={i}
-                      fill={entry.avgDelay > 8 ? '#ef4444' : entry.avgDelay > 2 ? '#f59e0b' : '#22c55e'} />
-                  ))}
-                </Bar>
-              </BarChart>
-            </ResponsiveContainer>
+            <SectionTitle icon="🕐" title="Délai moyen par domaine (jours)" sub="Projets en retard uniquement" />
+            {avgDelayByDomain.every(d => d.avgDelay === 0) ? (
+              <p className="text-sm text-slate-400 text-center py-12">Aucun projet en retard 🎉</p>
+            ) : (
+              <ResponsiveContainer width="100%" height={220}>
+                <BarChart data={avgDelayByDomain}>
+                  <CartesianGrid strokeDasharray="3 3" stroke="#f1f5f9"/>
+                  <XAxis dataKey="domain" tick={{ fontSize: 12 }}/>
+                  <YAxis tick={{ fontSize: 11 }}/>
+                  <Tooltip contentStyle={{ borderRadius: 12, fontSize: 12 }}
+                    formatter={(v: number) => [`${v} j`, 'Délai moyen']}
+                    labelFormatter={(label) => `${label} (${avgDelayByDomain.find(d => d.domain === label)?.count || 0} proj.)`}
+                  />
+                  <Bar dataKey="avgDelay" name="Délai moyen (jours)" radius={[6,6,0,0]}>
+                    {avgDelayByDomain.map((entry, i) => (
+                      <Cell key={i}
+                        fill={entry.avgDelay > 10 ? '#ef4444' : entry.avgDelay > 3 ? '#f59e0b' : '#22c55e'} />
+                    ))}
+                  </Bar>
+                </BarChart>
+              </ResponsiveContainer>
+            )}
           </div>
 
           {/* Radar santé globale */}
@@ -526,6 +615,7 @@ export default function PMStatsPage() {
             {(['IT', 'Marketing', 'CallCenter'] as Domain[]).map(dom => {
               const cfg = DOMAIN_CFG[dom];
               const domProjects = projects.filter(p => p.domain === dom);
+              const domOverdue = overdueProjects.filter(p => p.domain === dom);
               const domTasks = domProjects.flatMap(p =>
                 (sprints[p.id] ?? []).flatMap(s => s.tasks ?? [])
               );
@@ -536,7 +626,7 @@ export default function PMStatsPage() {
 
               return (
                 <div key={dom}
-                  className={`bg-white border ${cfg.border} rounded-2xl p-5 shadow-sm`}>
+                  className={`bg-white border ${cfg.border} rounded-2xl p-5 shadow-sm hover:shadow-md transition-shadow`}>
                   <div className="flex items-center gap-2 mb-4">
                     <span className="text-2xl">{cfg.icon}</span>
                     <h3 className={`font-bold text-base ${cfg.color}`}>{dom}</h3>
@@ -545,6 +635,16 @@ export default function PMStatsPage() {
                     </span>
                   </div>
                   <div className="space-y-2 text-sm">
+                    <div className="flex justify-between">
+                      <span className="text-slate-500">Projets total</span>
+                      <span className="font-semibold">{domProjects.length}</span>
+                    </div>
+                    <div className="flex justify-between">
+                      <span className="text-slate-500">Projets en retard</span>
+                      <span className={`font-semibold ${domOverdue.length > 0 ? 'text-red-600' : 'text-slate-400'}`}>
+                        {domOverdue.length}
+                      </span>
+                    </div>
                     <div className="flex justify-between">
                       <span className="text-slate-500">Tâches total</span>
                       <span className="font-semibold">{domTasks.length}</span>

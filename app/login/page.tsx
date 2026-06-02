@@ -2,6 +2,7 @@
 
 import { useState } from "react";
 import { useRouter } from "next/navigation";
+import Image from "next/image";
 
 /* ─── Role → first landing route ────────────────────────────────────────────
    Basé sur MENU_BY_ROLE du Sidebar :
@@ -19,7 +20,7 @@ const ROLE_ROUTES: Record<string, string> = {
   hr_manager:          "/Dashboard/RH/postslist",
   agent_telepro:       "/Dashboard",
   commercial:          "/Dashboard",
-  marketing_agent:     "/Dashboard",
+  marketing_agent:     "/Dashboard/marketing",
   qualite_agent:       "/Dashboard",
   tech_support:        "/Dashboard",
   member:              "/Dashboard",
@@ -27,34 +28,6 @@ const ROLE_ROUTES: Record<string, string> = {
 
 const getDashboardPath = (role: string) =>
   ROLE_ROUTES[role?.toLowerCase()] ?? "/Dashboard";
-
-/* ─── DataPilot SVG logo (inline, no img needed) ───── */
-function Logo() {
-  return (
-    <svg
-      width="64" height="64"
-      viewBox="0 0 100 100"
-      fill="none"
-      xmlns="http://www.w3.org/2000/svg"
-      className="drop-shadow-[0_0_20px_rgba(34,211,238,0.45)] animate-pulse"
-    >
-      <rect x="8"  y="58" width="13" height="28" rx="2.5" fill="#22d3ee" />
-      <rect x="26" y="42" width="13" height="44" rx="2.5" fill="#34d399" />
-      <rect x="44" y="28" width="13" height="58" rx="2.5" fill="#4ade80" />
-      <rect x="62" y="14" width="13" height="72" rx="2.5" fill="#a3e635" />
-      <path d="M10 72 Q40 28 80 10" stroke="url(#g)" strokeWidth="2.5"
-            fill="none" strokeLinecap="round"/>
-      <polygon points="80,3 89,16 74,15" fill="#bef264"/>
-      <defs>
-        <linearGradient id="g" x1="10" y1="72" x2="80" y2="10"
-                        gradientUnits="userSpaceOnUse">
-          <stop stopColor="#22d3ee"/>
-          <stop offset="1" stopColor="#bef264"/>
-        </linearGradient>
-      </defs>
-    </svg>
-  );
-}
 
 /* ─── Eye icons ─────────────────────────────────────── */
 const EyeOpen = () => (
@@ -86,12 +59,12 @@ function Field({
     <div className="flex flex-col gap-1.5">
       <label htmlFor={id}
              className="text-xs font-semibold tracking-widest uppercase
-                        text-slate-400">
+                        text-teal-700">
         {label}
       </label>
       <div className="relative">
         <span className="absolute left-3.5 top-1/2 -translate-y-1/2
-                         text-slate-500 pointer-events-none">
+                         text-teal-600 pointer-events-none">
           {icon}
         </span>
         <input
@@ -99,11 +72,11 @@ function Field({
           onChange={(e) => onChange(e.target.value)}
           required autoComplete={id}
           className="w-full pl-10 pr-10 py-2.5 rounded-xl text-sm
-                     bg-slate-900/70 border border-slate-700/60
-                     text-slate-100 placeholder-slate-600
-                     focus:outline-none focus:ring-2 focus:ring-cyan-500/40
-                     focus:border-cyan-500/60
-                     transition-all duration-200"
+                     bg-white border border-teal-300/70
+                     text-slate-900 placeholder-slate-500
+                     focus:outline-none focus:ring-2 focus:ring-teal-400/80
+                     focus:border-teal-400
+                     transition-all duration-200 shadow-sm"
         />
         {rightSlot && (
           <span className="absolute right-3 top-1/2 -translate-y-1/2">
@@ -154,52 +127,61 @@ export default function LoginPage() {
   return (
     /* ── Full-screen background ── */
     <div className="min-h-screen flex items-center justify-center
-                    bg-[#020b18] relative overflow-hidden px-4">
+                    bg-gradient-to-br from-white via-cyan-50 to-teal-50 relative overflow-hidden px-4">
 
-      {/* Radial glow blobs */}
+      {/* Radial glow blobs - Light version */}
       <div className="absolute top-0 left-1/2 -translate-x-1/2
                       w-[700px] h-[340px] rounded-full
-                      bg-cyan-500/10 blur-[90px] pointer-events-none" />
+                      bg-teal-200/25 blur-[90px] pointer-events-none" />
       <div className="absolute bottom-0 right-0
                       w-[400px] h-[300px] rounded-full
-                      bg-emerald-500/10 blur-[80px] pointer-events-none" />
+                      bg-cyan-200/25 blur-[80px] pointer-events-none" />
 
       {/* Subtle dot grid */}
       <div
-        className="absolute inset-0 pointer-events-none opacity-20"
+        className="absolute inset-0 pointer-events-none opacity-15"
         style={{
           backgroundImage:
-            "radial-gradient(circle, rgba(34,211,238,0.25) 1px, transparent 1px)",
+            "radial-gradient(circle, rgba(20,184,166,0.3) 1px, transparent 1px)",
           backgroundSize: "36px 36px",
         }}
       />
 
       {/* ── Card ── */}
       <div className="relative z-10 w-full max-w-md
-                      bg-slate-900/60 backdrop-blur-2xl
-                      border border-slate-700/50
-                      rounded-2xl shadow-2xl shadow-black/60
+                      bg-white/95 backdrop-blur-xl
+                      border border-teal-200/70
+                      rounded-2xl shadow-xl shadow-teal-100/50
                       px-8 py-10
                       animate-[fadeUp_.55s_cubic-bezier(.22,.68,0,1.2)_both]">
 
         {/* Top accent bar */}
         <div className="absolute top-0 left-8 right-8 h-px
-                        bg-gradient-to-r from-transparent via-cyan-400/60
+                        bg-gradient-to-r from-transparent via-teal-300/70
                         to-transparent rounded-full" />
 
         {/* ── Brand ── */}
         <div className="flex flex-col items-center gap-3 mb-8">
-          <Logo />
+          <div className="w-16 h-16">
+            <Image
+              src="/logo.png"
+              alt="DataPilot Logo"
+              width={64}
+              height={64}
+              className="object-contain w-full h-full relative z-10"
+              priority
+            />
+          </div>
           <div className="text-center">
             <h1 className="font-extrabold text-3xl tracking-tight leading-none">
-              <span className="text-white">Data</span>
-              <span className="bg-gradient-to-r from-cyan-400 via-emerald-400
-                               to-lime-400 bg-clip-text text-transparent">
+              <span className="text-slate-800">Data</span>
+              <span className="bg-gradient-to-r from-teal-500 via-cyan-500
+                               to-teal-600 bg-clip-text text-transparent">
                 Pilot
               </span>
             </h1>
             <p className="mt-1 text-[11px] tracking-[0.2em] uppercase
-                          text-slate-500 font-medium">
+                          text-teal-600 font-medium">
               Intelligence · Analytics · Insights
             </p>
           </div>
@@ -207,13 +189,13 @@ export default function LoginPage() {
 
         {/* Separator */}
         <div className="h-px bg-gradient-to-r from-transparent
-                        via-slate-600/60 to-transparent mb-7" />
+                        via-teal-200/60 to-transparent mb-7" />
 
         {/* ── Error banner ── */}
         {error && (
           <div className="flex items-center gap-2.5
-                          bg-red-500/10 border border-red-500/25
-                          text-red-400 text-sm rounded-xl px-4 py-2.5 mb-5">
+                          bg-red-100/80 border border-red-300/70
+                          text-red-700 text-sm rounded-xl px-4 py-2.5 mb-5">
             <svg width="16" height="16" fill="none" stroke="currentColor"
                  strokeWidth="2" viewBox="0 0 24 24" className="shrink-0">
               <circle cx="12" cy="12" r="10"/>
@@ -255,7 +237,7 @@ export default function LoginPage() {
               <button
                 type="button" onClick={() => setShowPwd((v) => !v)}
                 aria-label={showPwd ? "Masquer" : "Afficher"}
-                className="text-slate-500 hover:text-cyan-400
+                className="text-teal-600 hover:text-teal-700
                            transition-colors duration-150 cursor-pointer"
               >
                 {showPwd ? <EyeOff /> : <EyeOpen />}
@@ -266,7 +248,7 @@ export default function LoginPage() {
           {/* Forgot password */}
           <div className="flex justify-end -mt-2">
             <a href="/forgot-password"
-               className="text-xs text-slate-500 hover:text-cyan-400
+               className="text-xs text-teal-700 hover:text-teal-800
                           transition-colors duration-150">
               Mot de passe oublié ?
             </a>
@@ -280,19 +262,19 @@ export default function LoginPage() {
               relative w-full py-3 rounded-xl text-sm font-bold
               tracking-wide overflow-hidden transition-all duration-200
               ${success
-                ? "bg-gradient-to-r from-emerald-500 to-lime-500 text-white cursor-default"
-                : "bg-gradient-to-r from-cyan-500 via-teal-500 to-emerald-500 text-white"
+                ? "bg-gradient-to-r from-teal-500 to-cyan-500 text-white cursor-default"
+                : "bg-gradient-to-r from-teal-500 via-cyan-500 to-teal-600 text-white"
               }
-              hover:brightness-110 hover:-translate-y-0.5
+              hover:brightness-105 hover:-translate-y-0.5
               active:translate-y-0 active:brightness-100
               disabled:opacity-60 disabled:cursor-not-allowed
-              shadow-lg shadow-cyan-900/30
+              shadow-lg shadow-teal-300/30
             `}
           >
             {/* shimmer */}
             {!loading && !success && (
               <span className="absolute inset-0 bg-gradient-to-r from-transparent
-                               via-white/15 to-transparent
+                               via-white/25 to-transparent
                                -translate-x-full animate-[shimmer_2s_infinite]" />
             )}
 
@@ -319,7 +301,7 @@ export default function LoginPage() {
         <p className="mt-6 text-center text-xs text-slate-600">
           Besoin d'aide ?{" "}
           <a href="/support"
-             className="text-slate-500 hover:text-cyan-400
+             className="text-teal-700 hover:text-teal-800
                         transition-colors duration-150">
             Contacter le support
           </a>
@@ -328,7 +310,7 @@ export default function LoginPage() {
 
       {/* Version watermark */}
       <span className="absolute bottom-4 right-5 text-[10px]
-                       text-slate-700 tracking-widest select-none">
+                       text-teal-600/60 tracking-widest select-none">
         DataPilot v2.0
       </span>
     </div>

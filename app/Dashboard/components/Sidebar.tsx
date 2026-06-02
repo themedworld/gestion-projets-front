@@ -7,7 +7,7 @@ import {
   LayoutDashboard, Users, UserPlus, Briefcase, Settings,
   LogOut, ChevronLeft, ChevronRight, ShieldCheck, PlusCircle,
   Building2, PhoneCall, Megaphone, CheckCircle, Headphones,
-  Building, Search,
+  Building, Search, X,
 } from "lucide-react";
 
 enum UserRole {
@@ -102,7 +102,7 @@ const MENU_BY_ROLE: Record<UserRole, any[]> = {
     { href: "/Dashboard/commerciale/recomandationindistry", label: "Recommandation Industries", icon: CompanySearchIcon },
   ],
   [UserRole.MARKETING_AGENT]: [
-    { href: "/Dashboard", label: "Dashboard", icon: LayoutDashboard, section: "Principal" },
+
     { href: "/Dashboard/marketing", label: "Génération d'Images", icon: Megaphone, section: "Marketing" },
   ],
   [UserRole.QUALITE_AGENT]: [
@@ -136,8 +136,14 @@ const ROLE_META: Record<string, { avatarBg: string; avatarText: string; badgeBg:
   member:              { avatarBg: "bg-slate-500",  avatarText: "text-white", badgeBg: "bg-slate-100",  badgeText: "text-slate-600",  dot: "bg-slate-400",  label: "Membre" },
 };
 
-export default function Sidebar() {
-  const [open, setOpen] = useState(true);
+interface SidebarProps {
+  isMobile: boolean;
+  sidebarOpen: boolean;
+  onCloseSidebar: () => void;
+}
+
+export default function Sidebar({ isMobile, sidebarOpen, onCloseSidebar }: SidebarProps) {
+  const [open, setOpen] = useState(!isMobile);
   const [currentUser, setCurrentUser] = useState<any>(null);
   const pathname = usePathname();
   const router = useRouter();
@@ -146,6 +152,14 @@ export default function Sidebar() {
     const user = JSON.parse(localStorage.getItem("user") || "{}");
     setCurrentUser(user);
   }, []);
+
+  useEffect(() => {
+    if (isMobile && sidebarOpen) {
+      setOpen(true);
+    } else if (isMobile && !sidebarOpen) {
+      setOpen(false);
+    }
+  }, [isMobile, sidebarOpen]);
 
   const logout = () => {
     localStorage.clear();
@@ -178,35 +192,50 @@ export default function Sidebar() {
   return (
     <aside
       className={`
-        relative flex flex-col h-screen bg-white border-r border-slate-200/80
+        fixed md:relative top-0 left-0 z-40 flex flex-col h-screen bg-white border-r border-slate-200/80
         shadow-[1px_0_12px_rgba(0,0,0,0.04)] flex-shrink-0
         transition-[width] duration-300 ease-in-out
-        ${open ? "w-64" : "w-[68px]"}
+        ${isMobile
+          ? open ? "w-64" : "w-0 md:w-64"
+          : open ? "w-64" : "w-[68px]"
+        }
       `}
     >
-      {/* Toggle btn */}
-      <button
-        onClick={() => setOpen(!open)}
-        className="
-          absolute -right-3.5 top-8 z-50
-          w-7 h-7 rounded-full bg-white border border-slate-200
-          flex items-center justify-center shadow-sm
-          text-slate-400 hover:text-blue-600 hover:border-blue-300
-          transition-all duration-200
-        "
-      >
-        {open ? <ChevronLeft size={13} /> : <ChevronRight size={13} />}
-      </button>
+      {/* Close button on mobile */}
+      {isMobile && open && (
+        <button
+          onClick={onCloseSidebar}
+          className="absolute top-4 right-4 z-50 md:hidden w-8 h-8 rounded-lg flex items-center justify-center text-slate-600 hover:bg-slate-100 transition-colors"
+        >
+          <X size={18} />
+        </button>
+      )}
+
+      {/* Toggle btn (desktop only) */}
+      {!isMobile && (
+        <button
+          onClick={() => setOpen(!open)}
+          className="
+            absolute -right-3.5 top-8 z-50
+            w-7 h-7 rounded-full bg-white border border-slate-200
+            flex items-center justify-center shadow-sm
+            text-slate-400 hover:text-blue-600 hover:border-blue-300
+            transition-all duration-200
+          "
+        >
+          {open ? <ChevronLeft size={13} /> : <ChevronRight size={13} />}
+        </button>
+      )}
 
       {/* Brand Header */}
-      <div className={`flex items-center gap-3 py-5 border-b border-slate-100 ${open ? "px-5" : "px-[18px] justify-center"}`}>
-        <div className="w-9 h-9 rounded-xl bg-blue-600 flex items-center justify-center flex-shrink-0 shadow-md shadow-blue-200/60">
-          <ShieldCheck size={17} className="text-white" strokeWidth={2.2} />
+      <div className={`flex items-center gap-3 py-4 md:py-5 border-b border-slate-100 ${open ? "px-4 md:px-5" : "px-4 md:px-[18px] justify-center"}`}>
+        <div className="w-8 md:w-9 h-8 md:h-9 rounded-xl bg-blue-600 flex items-center justify-center flex-shrink-0 shadow-md shadow-blue-200/60">
+          <ShieldCheck size={16} className="md:w-[17px] md:h-[17px] text-white" strokeWidth={2.2} />
         </div>
         {open && (
-          <div>
-            <p className="text-[13px] font-bold text-slate-800 tracking-tight leading-none">Admin Panel</p>
-            <div className={`mt-1.5 inline-flex items-center gap-1.5 px-2 py-0.5 rounded-full text-[10px] font-semibold ${meta.badgeBg} ${meta.badgeText}`}>
+          <div className="min-w-0">
+            <p className="text-[12px] md:text-[13px] font-bold text-slate-800 tracking-tight leading-none truncate">Admin Panel</p>
+            <div className={`mt-1.5 inline-flex items-center gap-1.5 px-2 py-0.5 rounded-full text-[9px] md:text-[10px] font-semibold ${meta.badgeBg} ${meta.badgeText} whitespace-nowrap`}>
               <span className={`w-1.5 h-1.5 rounded-full ${meta.dot}`} />
               {meta.label}
             </div>
@@ -215,12 +244,12 @@ export default function Sidebar() {
       </div>
 
       {/* Navigation */}
-      <nav className="flex-1 overflow-y-auto overflow-x-hidden py-4 px-3 [&::-webkit-scrollbar]:w-0">
+      <nav className="flex-1 overflow-y-auto overflow-x-hidden py-4 px-2 md:px-3 [&::-webkit-scrollbar]:w-0">
         {grouped.map((group, gi) => (
           <div key={gi} className={gi > 0 ? "mt-4" : ""}>
             {/* Section label */}
             {group.section && open && (
-              <p className="text-[10px] font-bold uppercase tracking-[0.12em] text-slate-400 px-2 mb-1.5">
+              <p className="text-[9px] md:text-[10px] font-bold uppercase tracking-[0.12em] text-slate-400 px-2 mb-1.5">
                 {group.section}
               </p>
             )}
@@ -234,10 +263,11 @@ export default function Sidebar() {
                   <Link
                     key={item.href}
                     href={item.href}
+                    onClick={() => isMobile && onCloseSidebar()}
                     className={`
-                      relative group flex items-center rounded-xl
-                      text-[13px] font-medium transition-all duration-150
-                      ${open ? "gap-3 px-3 py-2.5" : "justify-center px-2 py-2.5"}
+                      relative group flex items-center rounded-lg md:rounded-xl
+                      text-[12px] md:text-[13px] font-medium transition-all duration-150
+                      ${open ? "gap-2 md:gap-3 px-2 md:px-3 py-2 md:py-2.5" : "justify-center px-2 md:px-2 py-2 md:py-2.5"}
                       ${isActive
                         ? "bg-blue-600 text-white shadow-md shadow-blue-200/50"
                         : "text-slate-500 hover:bg-slate-50 hover:text-slate-800"
@@ -245,7 +275,7 @@ export default function Sidebar() {
                     `}
                   >
                     <span className={`flex-shrink-0 ${isActive ? "text-white" : "text-slate-400 group-hover:text-slate-600"} transition-colors`}>
-                      <Icon size={17} />
+                      <Icon size={16} className="md:w-[17px] md:h-[17px]" />
                     </span>
                     {open && (
                       <>
@@ -264,17 +294,17 @@ export default function Sidebar() {
       </nav>
 
       {/* Footer — user + logout */}
-      <div className="border-t border-slate-100 p-3 space-y-1">
-        <div className={`flex items-center gap-3 rounded-xl bg-slate-50 px-3 py-2.5 ${!open && "justify-center"}`}>
-          <div className={`w-8 h-8 rounded-lg flex-shrink-0 flex items-center justify-center text-[11px] font-bold ${meta.avatarBg} ${meta.avatarText}`}>
+      <div className="border-t border-slate-100 p-2 md:p-3 space-y-1">
+        <div className={`flex items-center gap-2 md:gap-3 rounded-lg md:rounded-xl bg-slate-50 px-2 md:px-3 py-2 md:py-2.5 ${!open && "justify-center"}`}>
+          <div className={`w-7 md:w-8 h-7 md:h-8 rounded-lg flex-shrink-0 flex items-center justify-center text-[10px] md:text-[11px] font-bold ${meta.avatarBg} ${meta.avatarText}`}>
             {initials}
           </div>
           {open && (
             <div className="min-w-0 flex-1">
-              <p className="text-[12px] font-semibold text-slate-800 truncate leading-none">
+              <p className="text-[11px] md:text-[12px] font-semibold text-slate-800 truncate leading-none">
                 {currentUser.fullname || "Utilisateur"}
               </p>
-              <p className={`text-[11px] mt-0.5 truncate font-medium ${meta.badgeText}`}>{meta.label}</p>
+              <p className={`text-[10px] md:text-[11px] mt-0.5 truncate font-medium ${meta.badgeText}`}>{meta.label}</p>
             </div>
           )}
         </div>
@@ -282,13 +312,13 @@ export default function Sidebar() {
         <button
           onClick={logout}
           className={`
-            w-full flex items-center rounded-xl px-3 py-2.5
-            text-[13px] font-medium text-slate-400
+            w-full flex items-center rounded-lg md:rounded-xl px-2 md:px-3 py-2 md:py-2.5
+            text-[12px] md:text-[13px] font-medium text-slate-400
             hover:bg-red-50 hover:text-red-600 transition-all duration-150
-            ${open ? "gap-3" : "justify-center"}
+            ${open ? "gap-2 md:gap-3" : "justify-center"}
           `}
         >
-          <LogOut size={16} />
+          <LogOut size={16} className="md:w-[16px] md:h-[16px]" />
           {open && <span>Déconnexion</span>}
         </button>
       </div>

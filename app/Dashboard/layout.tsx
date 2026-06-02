@@ -26,6 +26,8 @@ const allowedRoles: UserRole[] = [
 export default function AdminLayout({ children }: { children: React.ReactNode }) {
   const router = useRouter();
   const [isAuthorized, setIsAuthorized] = useState(false);
+  const [isMobile, setIsMobile] = useState(false);
+  const [sidebarOpen, setSidebarOpen] = useState(false);
 
   useEffect(() => {
     const token = localStorage.getItem("access_token");
@@ -47,23 +49,46 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
       localStorage.clear();
       router.push("/login");
     }
+
+    // Detect mobile
+    const handleResize = () => {
+      setIsMobile(window.innerWidth < 768);
+    };
+    handleResize();
+    window.addEventListener("resize", handleResize);
+    return () => window.removeEventListener("resize", handleResize);
   }, [router]);
 
   if (!isAuthorized) return null;
 
   return (
     <div className="flex h-screen w-full bg-slate-50 overflow-hidden">
-      {/* Sidebar — fixed height, no shrink */}
-      <Sidebar />
+      {/* Mobile overlay */}
+      {isMobile && sidebarOpen && (
+        <div
+          className="fixed inset-0 z-40 bg-black/50"
+          onClick={() => setSidebarOpen(false)}
+        />
+      )}
+
+      {/* Sidebar */}
+      <Sidebar
+        isMobile={isMobile}
+        sidebarOpen={sidebarOpen}
+        onCloseSidebar={() => setSidebarOpen(false)}
+      />
 
       {/* Main column */}
       <div className="flex flex-col flex-1 min-w-0 h-screen overflow-hidden">
-        {/* Header — sticky at top */}
-        <Header />
+        {/* Header */}
+        <Header
+          isMobile={isMobile}
+          onToggleSidebar={() => setSidebarOpen(!sidebarOpen)}
+        />
 
         {/* Scrollable content area */}
         <main className="flex-1 overflow-y-auto">
-          <div className="mx-auto max-w-7xl px-6 py-8 md:px-8">
+          <div className="mx-auto w-full px-4 py-6 md:max-w-7xl md:px-8 md:py-8">
             {children}
           </div>
         </main>
