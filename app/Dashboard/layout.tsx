@@ -52,7 +52,12 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
 
     // Detect mobile
     const handleResize = () => {
-      setIsMobile(window.innerWidth < 768);
+      const mobile = window.innerWidth < 768;
+      setIsMobile(mobile);
+      // Fermer la sidebar si on passe en desktop
+      if (!mobile) {
+        setSidebarOpen(false);
+      }
     };
     handleResize();
     window.addEventListener("resize", handleResize);
@@ -66,17 +71,28 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
       {/* Mobile overlay */}
       {isMobile && sidebarOpen && (
         <div
-          className="fixed inset-0 z-40 bg-black/50"
+          className="fixed inset-0 z-40 bg-black/40 backdrop-blur-sm"
           onClick={() => setSidebarOpen(false)}
         />
       )}
 
-      {/* Sidebar */}
-      <Sidebar
-        isMobile={isMobile}
-        sidebarOpen={sidebarOpen}
-        onCloseSidebar={() => setSidebarOpen(false)}
-      />
+      {/* Sidebar - hidden on mobile unless opened */}
+      {!isMobile && (
+        <Sidebar
+          isMobile={isMobile}
+          sidebarOpen={sidebarOpen}
+          onCloseSidebar={() => setSidebarOpen(false)}
+        />
+      )}
+
+      {/* Sidebar on mobile */}
+      {isMobile && (
+        <Sidebar
+          isMobile={isMobile}
+          sidebarOpen={sidebarOpen}
+          onCloseSidebar={() => setSidebarOpen(false)}
+        />
+      )}
 
       {/* Main column */}
       <div className="flex flex-col flex-1 min-w-0 h-screen overflow-hidden">
@@ -84,11 +100,12 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
         <Header
           isMobile={isMobile}
           onToggleSidebar={() => setSidebarOpen(!sidebarOpen)}
+          sidebarOpen={sidebarOpen}
         />
 
         {/* Scrollable content area */}
         <main className="flex-1 overflow-y-auto">
-          <div className="mx-auto w-full px-4 py-6 md:max-w-7xl md:px-8 md:py-8">
+          <div className="w-full px-4 py-6 md:px-8 md:py-8">
             {children}
           </div>
         </main>

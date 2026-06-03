@@ -1,620 +1,475 @@
 "use client";
 
-import { useState, useEffect, useRef } from "react";
-import {
-  AlertCircle, Play, Square, Loader2, CheckCircle, XCircle, RefreshCw,
-  Building2, Globe, Users, Mail, ShieldCheck, ExternalLink, ChevronRight,
-  Activity, Hash, Copy, Check, Phone, ChevronDown, ChevronUp, Zap,
-  TrendingUp, Target,
-} from "lucide-react";
+import { useState, useEffect, useRef, useCallback } from "react";
 
-interface OSINTFormData {
-  company_name: string;
-  company_handle: string;
-  country_name: string;
-  country_iso: string;
-  target_roles: string;
-  session_id?: string;
+// ─── Design tokens ────────────────────────────────────────────────────────
+const T = {
+  teal:       "#0d9488",
+  tealLight:  "#ccfbf1",
+  tealMid:    "#14b8a6",
+  tealDark:   "#0f766e",
+  tealBg:     "#f0fdfa",
+  blue:       "#2563eb",
+  blueBg:     "#eff6ff",
+  orange:     "#ea580c",
+  orangeBg:   "#fff7ed",
+  red:        "#dc2626",
+  redBg:      "#fef2f2",
+  green:      "#16a34a",
+  greenBg:    "#f0fdf4",
+  amber:      "#ca8a04",
+  amberBg:    "#fefce8",
+  gray:       "#6b7280",
+  grayLight:  "#f3f4f6",
+};
+
+// ─── Icons ────────────────────────────────────────────────────────────────
+const Icon = ({ d, size = 16, color }) => (
+  <svg width={size} height={size} viewBox="0 0 24 24" fill="none"
+    stroke={color || "currentColor"} strokeWidth={1.8} strokeLinecap="round"
+    strokeLinejoin="round" style={{ flexShrink: 0, display: "block" }}>
+    <path d={d} />
+  </svg>
+);
+
+const ICONS = {
+  shield:      "M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z",
+  play:        "M5 3l14 9-14 9V3z",
+  stop:        "M3 3h18v18H3z",
+  check:       "M20 6 9 17l-5-5",
+  x:           "M18 6 6 18M6 6l12 12",
+  refresh:     "M23 4v6h-6M1 20v-6h6M3.51 9a9 9 0 0 1 14.85-3.36L23 10M1 14l4.64 4.36A9 9 0 0 0 20.49 15",
+  building:    "M3 9l9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z",
+  globe:       "M12 2a10 10 0 1 0 0 20 10 10 0 0 0 0-20zM2 12h20M12 2a15.3 15.3 0 0 1 4 10 15.3 15.3 0 0 1-4 10 15.3 15.3 0 0 1-4-10 15.3 15.3 0 0 1 4-10z",
+  users:       "M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2M9 11a4 4 0 1 0 0-8 4 4 0 0 0 0 8zM23 21v-2a4 4 0 0 0-3-3.87M16 3.13a4 4 0 0 1 0 7.75",
+  mail:        "M4 4h16c1.1 0 2 .9 2 2v12c0 1.1-.9 2-2 2H4c-1.1 0-2-.9-2-2V6c0-1.1.9-2 2-2zM22 6l-10 7L2 6",
+  copy:        "M20 9h-9a2 2 0 0 0-2 2v9a2 2 0 0 0 2 2h9a2 2 0 0 0 2-2v-9a2 2 0 0 0-2-2zM5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1",
+  externalLink:"M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6M15 3h6v6M10 14 21 3",
+  chevDown:    "M6 9l6 6 6-6",
+  chevUp:      "M18 15l-6-6-6 6",
+  activity:    "M22 12h-4l-3 9L9 3l-3 9H2",
+  hash:        "M4 9h16M4 15h16M10 3 8 21M16 3l-2 18",
+  phone:       "M22 16.92v3a2 2 0 0 1-2.18 2 19.79 19.79 0 0 1-8.63-3.07A19.5 19.5 0 0 1 4.15 13a19.79 19.79 0 0 1-3.07-8.67A2 2 0 0 1 3.07 2.18h3a2 2 0 0 1 2 1.72c.127.96.361 1.903.7 2.81a2 2 0 0 1-.45 2.11L7.09 9.91a16 16 0 0 0 6 6l1.27-1.27a2 2 0 0 1 2.11-.45c.907.339 1.85.573 2.81.7A2 2 0 0 1 21 16.92z",
+  target:      "M12 22a10 10 0 1 0 0-20 10 10 0 0 0 0 20zM12 18a6 6 0 1 0 0-12 6 6 0 0 0 0 12zM12 14a2 2 0 1 0 0-4 2 2 0 0 0 0 4z",
+  alertCircle: "M12 22a10 10 0 1 0 0-20 10 10 0 0 0 0 20zM12 8v4M12 16h.01",
+  zap:         "M13 2 3 14h9l-1 8 10-12h-9l1-8z",
+  checkCircle: "M22 11.08V12a10 10 0 1 1-5.93-9.14M22 4 12 14.01l-3-3",
+  menu:        "M3 12h18M3 6h18M3 18h18",
+};
+
+const LinkedInSVG = ({ size = 14 }) => (
+  <svg width={size} height={size} viewBox="0 0 24 24" fill="currentColor" style={{ flexShrink: 0 }}>
+    <path d="M20.447 20.452h-3.554v-5.569c0-1.328-.027-3.037-1.852-3.037-1.853 0-2.136 1.445-2.136 2.939v5.667H9.351V9h3.414v1.561h.046c.477-.9 1.637-1.85 3.37-1.85 3.601 0 4.267 2.37 4.267 5.455v6.286zM5.337 7.433a2.062 2.062 0 1 1 0-4.124 2.062 2.062 0 0 1 0 4.124zM7.12 20.452H3.555V9h3.564v11.452zM22.225 0H1.771C.792 0 0 .774 0 1.729v20.542C0 23.227.792 24 1.771 24h20.451C23.2 24 24 23.227 24 22.271V1.729C24 .774 23.2 0 22.222 0z" />
+  </svg>
+);
+
+// ─── Utilities ────────────────────────────────────────────────────────────
+function getInitials(name) {
+  return name.split(" ").map(n => n[0]).join("").toUpperCase().slice(0, 2);
 }
 
-interface EmailResult {
-  email: string;
-  domain?: string;
-  mx_valid?: boolean;
-  mx_ok?: boolean;
-  found_online?: boolean;
-  score: number;
-}
-
-interface Employee {
-  name: string;
-  role?: string;
-  score: number;
-  linkedin_url?: string;
-  profile_url?: string;
-  emails: EmailResult[];
-  source?: string;
-}
-
-interface CompanyResult {
-  company?: {
-    name: string;
-    handle?: string;
-    domain?: string;
-    social_links?: { linkedin?: string; facebook?: string; instagram?: string; twitter?: string };
-    emails?: string[];
-    phones?: string[];
-    address?: string;
-    description?: string;
-  };
-  employees?: Employee[];
-}
-
-interface ProgressData {
-  session_id: string;
-  progress: number;
-  status: "idle" | "running" | "stopping" | "stopped" | "completed" | "error";
-  logs: string[];
-  result: {
-    results_markdown?: string;
-    results_json?: string;
-    partial?: boolean;
-    success?: boolean;
-    message?: string;
-    input?: OSINTFormData;
-  } | null;
-}
-
-// ────────────────────────────────────────────────────────────
-// UTILITIES
-// ────────────────────────────────────────────────────────────
-
-function getInitials(name: string) {
-  return name.split(" ").map((n) => n[0]).join("").toUpperCase().slice(0, 2);
-}
-
-function formatProgressLabel(progress: number): string {
-  if (progress < 5) return "Initialisation...";
-  if (progress < 15) return "Recherche du domaine...";
-  if (progress < 25) return "Réseaux sociaux...";
-  if (progress < 40) return "Scraping du site...";
-  if (progress < 60) return "Recherche employés...";
-  if (progress < 95) return "Recherche des emails...";
-  if (progress < 100) return "Finalisation...";
+function formatProgressLabel(p) {
+  if (p < 5)  return "Initialisation";
+  if (p < 15) return "Domaine";
+  if (p < 25) return "Réseaux sociaux";
+  if (p < 40) return "Scraping site";
+  if (p < 60) return "Employés";
+  if (p < 95) return "Emails";
+  if (p < 100) return "Finalisation";
   return "Complété";
 }
 
-function ScoreBar({ value }: { value: number }) {
-  const pct = Math.round(value <= 1 ? value * 100 : value);
-  const color = pct >= 80 ? "bg-emerald-500" : pct >= 60 ? "bg-amber-400" : "bg-red-400";
+// ─── Spinner ──────────────────────────────────────────────────────────────
+function Spinner({ size = 14, color = "currentColor" }) {
   return (
-    <div className="flex items-center gap-2">
-      <div className="flex-1 h-1.5 bg-gray-100 rounded-full overflow-hidden">
-        <div
-          className={`h-full rounded-full ${color} transition-all duration-500`}
-          style={{ width: `${pct}%` }}
-        />
-      </div>
-      <span className="text-xs font-medium text-gray-500 w-8 text-right">{pct}%</span>
-    </div>
-  );
-}
-
-function CopyButton({ text }: { text: string }) {
-  const [copied, setCopied] = useState(false);
-  return (
-    <button
-      onClick={() => {
-        navigator.clipboard.writeText(text);
-        setCopied(true);
-        setTimeout(() => setCopied(false), 1500);
-      }}
-      className="p-1 rounded hover:bg-gray-100 transition-colors text-gray-400 hover:text-gray-600"
-      title="Copier"
-    >
-      {copied ? (
-        <Check size={12} className="text-emerald-500" />
-      ) : (
-        <Copy size={12} />
-      )}
-    </button>
-  );
-}
-
-function StatusPill({ status }: { status: ProgressData["status"] }) {
-  const map: Record<ProgressData["status"], { label: string; cls: string; dot: string }> = {
-    idle: { label: "Inactif", cls: "bg-gray-100 text-gray-500", dot: "bg-gray-400" },
-    running: {
-      label: "En cours",
-      cls: "bg-blue-50 text-blue-600",
-      dot: "bg-blue-500 animate-pulse",
-    },
-    stopping: {
-      label: "Arrêt...",
-      cls: "bg-orange-50 text-orange-500",
-      dot: "bg-orange-400 animate-pulse",
-    },
-    completed: {
-      label: "Terminé",
-      cls: "bg-emerald-50 text-emerald-600",
-      dot: "bg-emerald-500",
-    },
-    stopped: {
-      label: "Arrêté",
-      cls: "bg-orange-50 text-orange-600",
-      dot: "bg-orange-400",
-    },
-    error: {
-      label: "Erreur",
-      cls: "bg-red-50 text-red-600",
-      dot: "bg-red-500",
-    },
-  };
-  const { label, cls, dot } = map[status];
-  return (
-    <span
-      className={`inline-flex items-center gap-1.5 text-xs font-medium px-2.5 py-1 rounded-full ${cls}`}
-    >
-      <span className={`w-1.5 h-1.5 rounded-full ${dot}`} />
-      {label}
-    </span>
-  );
-}
-
-function LinkedInIcon({ size = 12 }: { size?: number }) {
-  return (
-    <svg width={size} height={size} viewBox="0 0 24 24" fill="currentColor">
-      <path d="M20.447 20.452h-3.554v-5.569c0-1.328-.027-3.037-1.852-3.037-1.853 0-2.136 1.445-2.136 2.939v5.667H9.351V9h3.414v1.561h.046c.477-.9 1.637-1.85 3.37-1.85 3.601 0 4.267 2.37 4.267 5.455v6.286zM5.337 7.433c-1.144 0-2.063-.926-2.063-2.065 0-1.138.92-2.063 2.063-2.063 1.14 0 2.064.925 2.064 2.063 0 1.139-.925 2.065-2.064 2.065zm1.782 13.019H3.555V9h3.564v11.452zM22.225 0H1.771C.792 0 0 .774 0 1.729v20.542C0 23.227.792 24 1.771 24h20.451C23.2 24 24 23.227 24 22.271V1.729C24 .774 23.2 0 22.222 0h.003z" />
+    <svg width={size} height={size} viewBox="0 0 24 24" fill="none"
+      stroke={color} strokeWidth={2} strokeLinecap="round"
+      style={{ animation: "spin .8s linear infinite", transformOrigin: "center", flexShrink: 0 }}>
+      <path d="M21 12a9 9 0 1 1-6.22-8.56" />
     </svg>
   );
 }
 
-function SocialChip({
-  href,
-  label,
-  icon,
-}: {
-  href?: string | null;
-  label: string;
-  icon: React.ReactNode;
-}) {
-  const empty = !href || href === "N/A" || href.trim() === "";
-  if (empty) {
-    return (
-      <div className="flex items-center gap-2 px-3 py-2 rounded-lg border border-dashed border-gray-100">
-        <span className="text-gray-300">{icon}</span>
-        <span className="text-xs text-gray-300">{label}</span>
-        <span className="text-[10px] text-gray-200 ml-auto">—</span>
-      </div>
-    );
-  }
+// ─── ScoreBar ─────────────────────────────────────────────────────────────
+function ScoreBar({ value }) {
+  const pct = Math.round(value <= 1 ? value * 100 : value);
+  const color = pct >= 80 ? T.teal : pct >= 60 ? T.amber : T.red;
   return (
-    <a
-      href={href}
-      target="_blank"
-      rel="noopener noreferrer"
-      className="flex items-center gap-2 px-3 py-2 rounded-lg border border-gray-100 hover:border-blue-200 hover:bg-blue-50 transition-all duration-150 group"
-    >
-      <span className="text-gray-500 group-hover:text-blue-600 transition-colors">
-        {icon}
-      </span>
-      <span className="text-xs font-medium text-gray-600 group-hover:text-blue-700">
-        {label}
-      </span>
-      <ExternalLink size={9} className="text-gray-300 group-hover:text-blue-400 ml-auto" />
-    </a>
+    <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
+      <div style={{ flex: 1, height: 4, background: "#e5e7eb", borderRadius: 99, overflow: "hidden" }}>
+        <div style={{ height: "100%", width: `${pct}%`, background: color, borderRadius: 99, transition: "width .5s" }} />
+      </div>
+      <span style={{ fontSize: 11, fontWeight: 500, color: "#6b7280", minWidth: 30, textAlign: "right" }}>{pct}%</span>
+    </div>
   );
 }
 
-function EmailList({ emails }: { emails: EmailResult[] }) {
-  const [showAll, setShowAll] = useState(false);
-  const PREVIEW = 3;
-  const displayed = showAll ? emails : emails.slice(0, PREVIEW);
-  const hidden = emails.length - PREVIEW;
-
+// ─── CopyBtn ──────────────────────────────────────────────────────────────
+function CopyBtn({ text }) {
+  const [copied, setCopied] = useState(false);
   return (
-    <div>
-      <div className="space-y-1">
-        {displayed.map((e, i) => (
-          <div
-            key={i}
-            className="flex items-center justify-between px-3 py-2 rounded-lg bg-gray-50 hover:bg-gray-100 transition-colors group"
-          >
-            <div className="flex items-center gap-2 min-w-0">
-              <Mail size={12} className="text-gray-400 flex-shrink-0" />
-              <span className="text-xs font-mono text-gray-700 truncate">{e.email}</span>
-            </div>
-            <div className="flex items-center gap-1.5 flex-shrink-0 ml-2">
-              {(e.mx_valid ?? e.mx_ok) && (
-                <span className="hidden sm:inline text-[10px] font-medium text-emerald-600 bg-emerald-50 px-1.5 py-0.5 rounded ring-1 ring-emerald-200">
-                  MX ✓
-                </span>
-              )}
-              {e.found_online && (
-                <span className="hidden sm:inline text-[10px] font-medium text-blue-600 bg-blue-50 px-1.5 py-0.5 rounded ring-1 ring-blue-200">
-                  Web ✓
-                </span>
-              )}
-              <span
-                className={`inline-flex items-center text-[10px] font-semibold px-1.5 py-0.5 rounded ring-1 ${
-                  e.score >= 80
-                    ? "bg-emerald-50 text-emerald-700 ring-emerald-200"
-                    : e.score >= 60
-                    ? "bg-amber-50 text-amber-700 ring-amber-200"
-                    : "bg-red-50 text-red-700 ring-red-200"
-                }`}
-              >
-                {e.score}
-              </span>
-              <div className="opacity-0 group-hover:opacity-100 transition-opacity">
-                <CopyButton text={e.email} />
-              </div>
-            </div>
-          </div>
-        ))}
+    <button
+      onClick={() => { navigator.clipboard.writeText(text); setCopied(true); setTimeout(() => setCopied(false), 1500); }}
+      title="Copier"
+      style={{ 
+        padding: "5px 10px", 
+        border: `1px solid ${copied ? T.teal : "#d1d5db"}`, 
+        borderRadius: 6, 
+        background: copied ? T.tealBg : "#fff", 
+        cursor: "pointer", 
+        color: copied ? T.teal : "#6b7280", 
+        fontSize: 11, 
+        display: "flex", 
+        alignItems: "center", 
+        gap: 4, 
+        transition: "all .2s",
+        fontWeight: 500
+      }}>
+      <Icon d={copied ? ICONS.check : ICONS.copy} size={12} />
+      {copied && "Copié"}
+    </button>
+  );
+}
+
+// ─── StatusBadge ─────────────────────────────────────────────────────────
+function StatusBadge({ status }) {
+  const map = {
+    idle:      { label: "Inactif",    bg: "#f3f4f6",   color: "#6b7280",      dot: "#d1d5db" },
+    running:   { label: "En cours",   bg: T.tealBg,    color: T.tealDark,  dot: T.teal },
+    stopping:  { label: "Arrêt",      bg: T.orangeBg,  color: T.orange,    dot: T.orange },
+    completed: { label: "Terminé",    bg: T.greenBg,   color: T.green,     dot: T.green },
+    stopped:   { label: "Arrêté",     bg: T.orangeBg,  color: T.orange,    dot: T.orange },
+    error:     { label: "Erreur",     bg: T.redBg,     color: T.red,       dot: T.red },
+  };
+  const s = map[status] || map.idle;
+  const pulse = ["running", "stopping"].includes(status);
+  return (
+    <span style={{ display: "inline-flex", alignItems: "center", gap: 6, fontSize: 12, fontWeight: 500, padding: "6px 12px", borderRadius: 8, background: s.bg, color: s.color }}>
+      <span style={{ width: 8, height: 8, borderRadius: "50%", background: s.dot, ...(pulse ? { animation: "pulse 1.5s infinite" } : {}) }} />
+      {s.label}
+    </span>
+  );
+}
+
+// ─── EmailRow ─────────────────────────────────────────────────────────────
+function EmailRow({ e }) {
+  const pct = e.score;
+  const scoreColor = pct >= 80 ? T.green  : pct >= 60 ? T.amber  : T.red;
+  const scoreBg    = pct >= 80 ? T.greenBg: pct >= 60 ? T.amberBg: T.redBg;
+  return (
+    <div style={{ display: "flex", alignItems: "center", gap: 10, padding: "10px 12px", borderRadius: 8, background: "#fff", border: "1px solid #e5e7eb" }}>
+      <Icon d={ICONS.mail} size={12} color="#9ca3af" />
+      <span style={{ fontSize: 12, fontFamily: "monospace", color: "#1f2937", flex: 1, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{e.email}</span>
+      <div style={{ display: "flex", alignItems: "center", gap: 6, flexShrink: 0 }}>
+        {(e.mx_valid || e.mx_ok) && (
+          <span style={{ fontSize: 10, fontWeight: 600, color: T.tealDark, background: T.tealBg, padding: "3px 8px", borderRadius: 4 }}>MX</span>
+        )}
+        <span style={{ fontSize: 10, fontWeight: 600, color: scoreColor, background: scoreBg, padding: "3px 8px", borderRadius: 4 }}>{pct}</span>
+        <CopyBtn text={e.email} />
       </div>
-      {emails.length > PREVIEW && (
-        <button
-          onClick={() => setShowAll((v) => !v)}
-          className="mt-2 w-full flex items-center justify-center gap-1.5 py-1.5 text-xs text-gray-500 hover:text-blue-600 hover:bg-blue-50 rounded-lg border border-dashed border-gray-200 hover:border-blue-200 transition-all"
-        >
-          {showAll ? (
-            <>
-              <ChevronUp size={12} />
-              Réduire
-            </>
-          ) : (
-            <>
-              <ChevronDown size={12} />
-              Voir {hidden} email{hidden > 1 ? "s" : ""} supplémentaire
-              {hidden > 1 ? "s" : ""}
-            </>
-          )}
+    </div>
+  );
+}
+
+// ─── EmailList ────────────────────────────────────────────────────────────
+function EmailList({ emails }) {
+  const [all, setAll] = useState(false);
+  const shown = all ? emails : emails.slice(0, 3);
+  const hidden = emails.length - 3;
+  return (
+    <div style={{ display: "flex", flexDirection: "column", gap: 6 }}>
+      {shown.map((e, i) => <EmailRow key={i} e={e} />)}
+      {emails.length > 3 && (
+        <button onClick={() => setAll(v => !v)}
+          style={{ marginTop: 4, fontSize: 12, color: T.teal, background: T.tealBg, border: `1px solid ${T.tealLight}`, borderRadius: 8, padding: "8px", cursor: "pointer", display: "flex", alignItems: "center", justifyContent: "center", gap: 4, fontWeight: 500 }}>
+          <Icon d={all ? ICONS.chevUp : ICONS.chevDown} size={12} color={T.teal} />
+          {all ? "Réduire" : `Voir ${hidden} email${hidden > 1 ? "s" : ""}`}
         </button>
       )}
     </div>
   );
 }
 
-function EmployeeCard({ employee }: { employee: Employee }) {
-  const [open, setOpen] = useState(true);
-  const linkedinUrl = employee.linkedin_url || employee.profile_url;
-
+// ─── EmployeeCard ─────────────────────────────────────────────────────────
+function EmployeeCard({ emp }) {
+  const [open, setOpen] = useState(false);
+  const url = emp.linkedin_url || emp.profile_url;
   return (
-    <div className="border border-gray-100 rounded-xl overflow-hidden">
-      <button
-        className="w-full flex items-center justify-between px-4 py-3 bg-gray-50 hover:bg-gray-100 transition-colors"
-        onClick={() => setOpen((v) => !v)}
-      >
-        <div className="flex items-center gap-3">
-          <div className="w-8 h-8 rounded-full bg-blue-100 flex items-center justify-center text-blue-700 font-semibold text-xs flex-shrink-0">
-            {getInitials(employee.name)}
-          </div>
-          <div className="text-left">
-            <p className="text-sm font-semibold text-gray-800">{employee.name}</p>
-            <p className="text-xs text-gray-500">{employee.role || "—"}</p>
-          </div>
+    <div style={{ border: "1px solid #e5e7eb", borderRadius: 10, overflow: "hidden", background: "#fff" }}>
+      <button onClick={() => setOpen(v => !v)}
+        style={{ width: "100%", display: "flex", alignItems: "center", gap: 12, padding: "12px 14px", background: "transparent", border: "none", cursor: "pointer", textAlign: "left" }}>
+        <div style={{ width: 40, height: 40, borderRadius: 10, background: T.tealBg, color: T.tealDark, display: "flex", alignItems: "center", justifyContent: "center", fontWeight: 600, fontSize: 13, flexShrink: 0 }}>
+          {getInitials(emp.name)}
         </div>
-        <div className="flex items-center gap-3">
-          <div className="hidden sm:flex items-center gap-2 w-28">
-            <ScoreBar value={employee.score} />
-          </div>
-          {linkedinUrl ? (
-            <a
-              href={linkedinUrl}
-              target="_blank"
-              rel="noopener noreferrer"
-              onClick={(e) => e.stopPropagation()}
-              className="text-blue-500 hover:text-blue-700 transition-colors"
-              title="Voir profil LinkedIn"
-            >
-              <LinkedInIcon size={14} />
-            </a>
-          ) : (
-            <span className="text-gray-200">
-              <LinkedInIcon size={14} />
-            </span>
-          )}
-          <ChevronRight
-            size={14}
-            className={`text-gray-400 transition-transform duration-200 ${
-              open ? "rotate-90" : ""
-            }`}
-          />
+        <div style={{ flex: 1, minWidth: 0 }}>
+          <div style={{ fontSize: 13, fontWeight: 500, color: "#1f2937", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{emp.name}</div>
+          <div style={{ fontSize: 12, color: "#6b7280", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap", marginTop: 1 }}>{emp.role || "—"}</div>
+        </div>
+        <div style={{ display: "flex", alignItems: "center", gap: 10, flexShrink: 0 }}>
+          <div style={{ minWidth: 100 }}><ScoreBar value={emp.score} /></div>
+          {url
+            ? <a href={url} target="_blank" rel="noopener noreferrer" onClick={e => e.stopPropagation()} style={{ color: T.blue, display: "flex" }}><LinkedInSVG size={14} /></a>
+            : <span style={{ color: "#d1d5db" }}><LinkedInSVG size={14} /></span>
+          }
+          <Icon d={open ? ICONS.chevUp : ICONS.chevDown} size={14} color="#9ca3af" />
         </div>
       </button>
       {open && (
-        <div className="px-4 pt-1 pb-3">
-          <div className="flex items-center justify-between py-2 mb-1">
-            <span className="text-[11px] font-semibold text-gray-400 uppercase tracking-wider">
-              Emails détectés
-            </span>
-            <span className="text-[11px] text-gray-400">
-              {employee.emails.length} adresse{employee.emails.length > 1 ? "s" : ""}
-            </span>
+        <div style={{ padding: "0 14px 12px", borderTop: "1px solid #e5e7eb", paddingTop: 12, background: "#fafafa" }}>
+          <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 10 }}>
+            <span style={{ fontSize: 11, fontWeight: 600, color: "#6b7280", textTransform: "uppercase" }}>Emails</span>
+            <span style={{ fontSize: 11, color: "#6b7280" }}>{emp.emails.length}</span>
           </div>
-          <EmailList emails={employee.emails} />
+          {emp.emails.length > 0
+            ? <EmailList emails={emp.emails} />
+            : <p style={{ fontSize: 12, color: "#9ca3af", fontStyle: "italic", margin: 0 }}>Aucun email</p>
+          }
         </div>
       )}
     </div>
   );
 }
 
-function ProgressSteps({ progress }: { progress: number }) {
-  const steps = [
-    { label: "Contexte", pct: 5 },
-    { label: "Domaine", pct: 15 },
-    { label: "Réseaux", pct: 25 },
-    { label: "Scraping", pct: 40 },
-    { label: "Employés", pct: 60 },
-    { label: "Emails", pct: 95 },
-    { label: "Fin", pct: 100 },
-  ];
+// ─── ProgressSteps ────────────────────────────────────────────────────────
+const STEPS = [
+  { label: "Init",     pct: 5 },
+  { label: "Domaine",  pct: 15 },
+  { label: "Réseaux",  pct: 25 },
+  { label: "Scraping", pct: 40 },
+  { label: "Employés", pct: 60 },
+  { label: "Emails",   pct: 95 },
+  { label: "Fin",      pct: 100 },
+];
 
+function ProgressSteps({ progress }) {
   return (
-    <div className="space-y-3">
-      <p className="text-[11px] font-semibold text-gray-400 uppercase tracking-wider">
-        Étapes de progression
-      </p>
-      <div className="grid grid-cols-7 gap-1.5">
-        {steps.map((step, i) => (
-          <div key={i} className="flex flex-col items-center gap-1">
-            <div
-              className={`w-full h-1 rounded-full transition-all ${
-                progress >= step.pct
-                  ? "bg-blue-500"
-                  : progress >= step.pct - 10
-                  ? "bg-blue-200"
-                  : "bg-gray-100"
-              }`}
-            />
-            <span className="text-[9px] text-gray-500 text-center leading-tight">
-              {step.label}
-            </span>
+    <div style={{ display: "grid", gridTemplateColumns: "repeat(7, 1fr)", gap: 4, marginTop: 12 }}>
+      {STEPS.map((s, i) => {
+        const done = progress >= s.pct;
+        const active = progress >= (STEPS[i - 1]?.pct ?? 0) && !done;
+        return (
+          <div key={i} style={{ display: "flex", flexDirection: "column", alignItems: "center", gap: 4 }}>
+            <div style={{ width: "100%", height: 4, borderRadius: 99, background: done ? T.teal : active ? T.tealLight : "#e5e7eb" }} />
+            <span style={{ fontSize: 10, color: done ? T.teal : active ? T.teal : "#9ca3af", textAlign: "center", lineHeight: 1.2, fontWeight: done || active ? 500 : 400 }}>{s.label}</span>
           </div>
-        ))}
-      </div>
+        );
+      })}
     </div>
   );
 }
 
-function ResultsPanel({
-  result,
-  isPartial,
-}: {
-  result: ProgressData["result"];
-  isPartial?: boolean;
-}) {
-  const [tab, setTab] = useState<"overview" | "markdown" | "json">("overview");
+// ─── LogsPanel ────────────────────────────────────────────────────────────
+function LogsPanel({ logs }) {
+  const endRef = useRef(null);
+  useEffect(() => { endRef.current?.scrollIntoView({ behavior: "smooth" }); }, [logs]);
 
-  const parsed: CompanyResult | null = (() => {
+  if (!logs?.length) return (
+    <div style={{ display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", padding: "48px 20px", textAlign: "center" }}>
+      <div style={{ width: 48, height: 48, borderRadius: 12, background: T.tealBg, display: "flex", alignItems: "center", justifyContent: "center", marginBottom: 12 }}>
+        <Icon d={ICONS.activity} size={20} color={T.teal} />
+      </div>
+      <p style={{ fontSize: 13, color: "#6b7280", margin: 0 }}>Logs apparaîtront ici</p>
+    </div>
+  );
+
+  return (
+    <div style={{ background: "#1f2937", borderRadius: 10, padding: "12px 14px", maxHeight: 420, overflowY: "auto", border: "1px solid #374151" }}>
+      {logs.map((log, i) => {
+        const col = log.includes("✓") || log.includes("OK") ? "#10b981"
+          : log.includes("✕") || log.includes("ERR") ? "#ef4444"
+          : log.includes("⚠") ? "#f59e0b"
+          : "#94a3b8";
+        return (
+          <div key={i} style={{ display: "flex", gap: 10, padding: "3px 0", fontFamily: "monospace", fontSize: 11, color: col, lineHeight: 1.5 }}>
+            <span style={{ color: "#6ee7b7", minWidth: 24, textAlign: "right", flexShrink: 0, opacity: 0.7 }}>{String(i + 1).padStart(3, "0")}</span>
+            <span>{log}</span>
+          </div>
+        );
+      })}
+      <div ref={endRef} />
+    </div>
+  );
+}
+
+// ─── SocialRow ────────────────────────────────────────────────────────────
+function SocialRow({ href, label, icon }) {
+  const empty = !href || href === "N/A";
+  return (
+    <div style={{ display: "flex", alignItems: "center", gap: 10, padding: "10px 12px", borderRadius: 8, border: `1px solid ${empty ? "#e5e7eb" : T.tealLight}`, background: empty ? "#fff" : T.tealBg }}>
+      <span style={{ color: empty ? "#9ca3af" : T.teal, display: "flex" }}>{icon}</span>
+      <span style={{ fontSize: 12, color: empty ? "#6b7280" : "#1f2937", flex: 1, fontWeight: 500 }}>{label}</span>
+      {!empty && (
+        <a href={href} target="_blank" rel="noopener noreferrer" style={{ color: T.teal, display: "flex" }}>
+          <Icon d={ICONS.externalLink} size={12} color={T.teal} />
+        </a>
+      )}
+    </div>
+  );
+}
+
+// ─── ResultsPanel ─────────────────────────────────────────────────────────
+function ResultsPanel({ result, isPartial }) {
+  const [tab, setTab] = useState("overview");
+
+  const parsed = (() => {
     if (!result?.results_json) return null;
-    try {
-      return JSON.parse(result.results_json);
-    } catch {
-      return null;
-    }
+    try { return JSON.parse(result.results_json); } catch { return null; }
   })();
 
-  if (!result?.results_markdown && !result?.results_json) {
-    return (
-      <div className="flex flex-col items-center justify-center py-16 text-center">
-        <div className="w-12 h-12 rounded-full bg-gray-100 flex items-center justify-center mb-3">
-          <Activity size={20} className="text-gray-400" />
-        </div>
-        <p className="text-sm font-medium text-gray-400">Aucun résultat disponible</p>
-        <p className="text-xs text-gray-300 mt-1">
-          Lancez une recherche pour voir les résultats
-        </p>
+  if (!result?.results_markdown && !result?.results_json) return (
+    <div style={{ display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", padding: "48px 20px", textAlign: "center" }}>
+      <div style={{ width: 48, height: 48, borderRadius: 12, background: T.tealBg, display: "flex", alignItems: "center", justifyContent: "center", marginBottom: 12 }}>
+        <Icon d={ICONS.users} size={20} color={T.teal} />
       </div>
-    );
-  }
+      <p style={{ fontSize: 13, color: "#6b7280", margin: 0 }}>Lancez une recherche</p>
+    </div>
+  );
 
-  const company = parsed?.company;
-  const employees = parsed?.employees ?? [];
-  const totalEmails = employees.reduce((a, e) => a + e.emails.length, 0);
-  const avgScore =
-    employees.length > 0
-      ? Math.round(
-          employees.reduce((a, e) => {
-            const s =
-              e.emails.length > 0
-                ? e.emails.reduce((x, em) => x + em.score, 0) / e.emails.length
-                : 0;
-            return a + s;
-          }, 0) / employees.length
-        )
-      : 0;
+  const co   = parsed?.company;
+  const emps = parsed?.employees ?? [];
+  const total = emps.reduce((a, e) => a + e.emails.length, 0);
+  const avg   = emps.length > 0
+    ? Math.round(emps.reduce((a, e) => {
+        const s = e.emails.length > 0 ? e.emails.reduce((x, em) => x + em.score, 0) / e.emails.length : 0;
+        return a + s;
+      }, 0) / emps.length)
+    : 0;
+
+  const tabs = [
+    { id: "overview", label: "Vue d'ensemble" },
+    { id: "markdown", label: "Rapport" },
+    { id: "json",     label: "JSON" },
+  ];
 
   return (
     <div>
       {isPartial && (
-        <div className="mb-4 p-3 bg-orange-50 border border-orange-200 rounded-lg flex items-start gap-2">
-          <AlertCircle size={14} className="text-orange-600 flex-shrink-0 mt-0.5" />
-          <div className="text-xs text-orange-700">
-            <p className="font-semibold">Résultats partiels</p>
-            <p className="text-orange-600 mt-0.5">
-              La recherche a été arrêtée. Les données affichées sont partielles.
-            </p>
+        <div style={{ marginBottom: 16, padding: "12px 14px", background: T.orangeBg, border: `1px solid #fed7aa`, borderRadius: 10, display: "flex", gap: 10 }}>
+          <Icon d={ICONS.alertCircle} size={16} color={T.orange} />
+          <div>
+            <p style={{ fontSize: 12, fontWeight: 600, color: T.orange, margin: 0 }}>Résultats partiels</p>
+            <p style={{ fontSize: 11, color: "#b45309", margin: "2px 0 0" }}>Recherche arrêtée avant fin</p>
           </div>
         </div>
       )}
 
-      <div className="flex gap-1 mb-4 p-1 bg-gray-100 rounded-lg w-fit">
-        {(
-          [
-            { id: "overview", label: "Vue d'ensemble" },
-            { id: "markdown", label: "Markdown" },
-            { id: "json", label: "JSON brut" },
-          ] as const
-        ).map((t) => (
-          <button
-            key={t.id}
-            onClick={() => setTab(t.id)}
-            className={`text-xs font-medium px-3 py-1.5 rounded-md transition-all ${
-              tab === t.id
-                ? "bg-white text-gray-800 shadow-sm"
-                : "text-gray-500 hover:text-gray-700"
-            }`}
-          >
+      <div style={{ display: "flex", gap: 2, marginBottom: 16, padding: 4, background: "#f3f4f6", borderRadius: 10, width: "fit-content" }}>
+        {tabs.map(t => (
+          <button key={t.id} onClick={() => setTab(t.id)}
+            style={{ fontSize: 12, fontWeight: 500, padding: "6px 14px", borderRadius: 8, border: "none", cursor: "pointer", background: tab === t.id ? T.teal : "transparent", color: tab === t.id ? "#fff" : "#6b7280" }}>
             {t.label}
           </button>
         ))}
       </div>
 
-      {tab === "overview" && company && (
-        <div className="space-y-4">
-          {/* Carte entreprise */}
-          <div className="p-4 bg-white border border-gray-100 rounded-xl">
-            <div className="flex items-center gap-3 mb-4">
-              <div className="w-10 h-10 rounded-xl bg-blue-100 flex items-center justify-center flex-shrink-0">
-                <Building2 size={18} className="text-blue-600" />
+      {tab === "overview" && co && (
+        <div style={{ display: "flex", flexDirection: "column", gap: 16 }}>
+          {/* Company card */}
+          <div style={{ background: "#fff", border: "1px solid #e5e7eb", borderRadius: 12, padding: "16px", borderLeft: `3px solid ${T.teal}` }}>
+            <div style={{ display: "flex", alignItems: "center", gap: 14, marginBottom: 14 }}>
+              <div style={{ width: 44, height: 44, borderRadius: 12, background: T.tealBg, display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0 }}>
+                <Icon d={ICONS.building} size={20} color={T.teal} />
               </div>
-              <div>
-                <p className="font-semibold text-gray-800">{company.name || "—"}</p>
-                <p className="text-xs text-gray-400 flex items-center gap-1">
-                  <Globe size={10} />
-                  {company.domain || "Domaine non renseigné"}
+              <div style={{ minWidth: 0 }}>
+                <p style={{ fontWeight: 600, fontSize: 15, color: "#1f2937", margin: 0 }}>{co.name || "—"}</p>
+                <p style={{ fontSize: 12, color: T.teal, margin: "3px 0 0", fontWeight: 500 }}>
+                  <Icon d={ICONS.globe} size={10} color={T.teal} style={{ marginRight: 4 }} /> {co.domain || "N/A"}
                 </p>
               </div>
             </div>
-
-            {company.description && (
-              <p className="text-xs text-gray-600 mb-3 italic">{company.description}</p>
+            {co.description && (
+              <p style={{ fontSize: 12, color: "#6b7280", marginBottom: 14, lineHeight: 1.6 }}>
+                {co.description.slice(0, 200)}
+              </p>
             )}
-
-            <div className="grid grid-cols-2 gap-1.5">
-              <SocialChip
-                href={company.social_links?.linkedin}
-                label="LinkedIn"
-                icon={<LinkedInIcon size={13} />}
-              />
-              <SocialChip
-                href={company.social_links?.facebook}
-                label="Facebook"
-                icon={
-                  <svg width={13} height={13} viewBox="0 0 24 24" fill="currentColor">
-                    <path d="M24 12.073c0-6.627-5.373-12-12-12s-12 5.373-12 12c0 5.99 4.388 10.954 10.125 11.854v-8.385H7.078v-3.47h3.047V9.43c0-3.007 1.792-4.669 4.533-4.669 1.312 0 2.686.235 2.686.235v2.953H15.83c-1.491 0-1.956.925-1.956 1.874v2.25h3.328l-.532 3.47h-2.796v8.385C19.612 23.027 24 18.062 24 12.073z" />
-                  </svg>
-                }
-              />
-              <SocialChip
-                href={company.social_links?.instagram}
-                label="Instagram"
-                icon={
-                  <svg width={13} height={13} viewBox="0 0 24 24" fill="currentColor">
-                    <path d="M12 2.163c3.204 0 3.584.012 4.85.07 3.252.148 4.771 1.691 4.919 4.919.058 1.265.069 1.645.069 4.849 0 3.205-.012 3.584-.069 4.849-.149 3.225-1.664 4.771-4.919 4.919-1.266.058-1.644.07-4.85.07-3.204 0-3.584-.012-4.849-.07-3.26-.149-4.771-1.699-4.919-4.92-.058-1.265-.07-1.644-.07-4.849 0-3.204.013-3.583.07-4.849.149-3.227 1.664-4.771 4.919-4.919 1.266-.057 1.645-.069 4.849-.069zM12 0C8.741 0 8.333.014 7.053.072 2.695.272.273 2.69.073 7.052.014 8.333 0 8.741 0 12c0 3.259.014 3.668.072 4.948.2 4.358 2.618 6.78 6.98 6.98C8.333 23.986 8.741 24 12 24c3.259 0 3.668-.014 4.948-.072 4.354-.2 6.782-2.618 6.979-6.98.059-1.28.073-1.689.073-4.948 0-3.259-.014-3.667-.072-4.947-.196-4.354-2.617-6.78-6.979-6.98C15.668.014 15.259 0 12 0zm0 5.838a6.162 6.162 0 100 12.324 6.162 6.162 0 000-12.324zM12 16a4 4 0 110-8 4 4 0 010 8zm6.406-11.845a1.44 1.44 0 100 2.881 1.44 1.44 0 000-2.881z" />
-                  </svg>
-                }
-              />
-              <SocialChip
-                href={company.social_links?.twitter}
-                label="Twitter / X"
-                icon={
-                  <svg width={13} height={13} viewBox="0 0 24 24" fill="currentColor">
-                    <path d="M18.244 2.25h3.308l-7.227 8.26 8.502 11.24H16.17l-5.214-6.817L4.99 21.75H1.68l7.73-8.835L1.254 2.25H8.08l4.713 6.231zm-1.161 17.52h1.833L7.084 4.126H5.117z" />
-                  </svg>
-                }
-              />
+            <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 8 }}>
+              <SocialRow href={co.social_links?.linkedin}  label="LinkedIn"  icon={<LinkedInSVG size={13} />} />
+              <SocialRow href={co.social_links?.facebook}  label="Facebook"  icon={<Icon d="M18 2h-3a5 5 0 0 0-5 5v3H7v4h3v8h4v-8h3l1-4h-4V7a1 1 0 0 1 1-1h3z" size={13} />} />
+              <SocialRow href={co.social_links?.instagram} label="Instagram" icon={<Icon d="M16 11.37A4 4 0 1 1 12.63 8 4 4 0 0 1 16 11.37zM17.5 6.5h.01M7 2h10a5 5 0 0 1 5 5v10a5 5 0 0 1-5 5H7a5 5 0 0 1-5-5V7a5 5 0 0 1 5-5z" size={13} />} />
+              <SocialRow href={co.social_links?.twitter}   label="Twitter"   icon={<Icon d="M23 3a10.9 10.9 0 0 1-3.14 1.53 4.48 4.48 0 0 0-7.86 3v1A10.66 10.66 0 0 1 3 4s-4 9 5 13a11.64 11.64 0 0 1-7 2c9 5 20 0 20-11.5a4.5 4.5 0 0 0-.08-.83A7.72 7.72 0 0 0 23 3z" size={13} />} />
             </div>
-
-            {company.address && (
-              <div className="mt-3 pt-3 border-t border-gray-100 text-xs text-gray-600">
-                <p className="font-medium mb-1">Adresse</p>
-                <p>{company.address}</p>
+            {co.address && (
+              <div style={{ marginTop: 14, paddingTop: 14, borderTop: "1px solid #e5e7eb", display: "flex", gap: 8 }}>
+                <Icon d="M21 10c0 7-9 13-9 13s-9-6-9-13a9 9 0 0 1 18 0zM12 13a3 3 0 1 0 0-6 3 3 0 0 0 0 6z" size={12} color={T.teal} />
+                <p style={{ fontSize: 12, color: "#6b7280", margin: 0 }}>{co.address}</p>
               </div>
             )}
           </div>
 
           {/* Stats */}
-          <div className="grid grid-cols-3 gap-2">
-            <div className="bg-gray-50 rounded-xl p-3 text-center">
-              <p className="text-xl font-bold text-gray-800">{employees.length}</p>
-              <p className="text-[11px] text-gray-500 mt-0.5">Employés</p>
-            </div>
-            <div className="bg-gray-50 rounded-xl p-3 text-center">
-              <p className="text-xl font-bold text-gray-800">{totalEmails}</p>
-              <p className="text-[11px] text-gray-500 mt-0.5">Emails</p>
-            </div>
-            <div className="bg-gray-50 rounded-xl p-3 text-center">
-              <p className="text-xl font-bold text-emerald-600">{avgScore}</p>
-              <p className="text-[11px] text-gray-500 mt-0.5">Score moy.</p>
-            </div>
+          <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(140px, 1fr))", gap: 12 }}>
+            {[
+              { val: emps.length, label: "Employés",  icon: ICONS.users,    color: T.teal,  bg: T.tealBg },
+              { val: total,       label: "Emails",    icon: ICONS.mail,     color: T.blue,  bg: T.blueBg },
+              { val: `${avg}%`,   label: "Score",    icon: ICONS.target,   color: T.green, bg: T.greenBg },
+            ].map((s, i) => (
+              <div key={i} style={{ background: s.bg, borderRadius: 10, padding: "16px", textAlign: "center" }}>
+                <Icon d={s.icon} size={18} color={s.color} style={{ marginBottom: 8 }} />
+                <p style={{ fontSize: 20, fontWeight: 600, margin: 0, color: s.color }}>{s.val}</p>
+                <p style={{ fontSize: 11, color: "#6b7280", margin: "4px 0 0" }}>{s.label}</p>
+              </div>
+            ))}
           </div>
 
-          {/* Emails société */}
-          {company.emails && company.emails.length > 0 && (
-            <div className="bg-white border border-gray-100 rounded-xl p-4">
-              <p className="text-[11px] font-semibold text-gray-400 uppercase tracking-wider mb-3 flex items-center gap-1.5">
-                <Mail size={11} />
-                Emails génériques
+          {/* Company emails */}
+          {co.emails?.length > 0 && (
+            <div style={{ background: "#fff", border: "1px solid #e5e7eb", borderRadius: 10, padding: "14px 16px" }}>
+              <p style={{ fontSize: 11, fontWeight: 600, color: T.teal, textTransform: "uppercase", marginBottom: 12, display: "flex", alignItems: "center", gap: 6, margin: "0 0 12px" }}>
+                <Icon d={ICONS.mail} size={11} color={T.teal} /> Emails génériques
               </p>
-              <div className="space-y-1.5">
-                {company.emails.map((e, i) => (
-                  <div
-                    key={i}
-                    className="flex items-center justify-between group px-2 py-1.5 rounded hover:bg-gray-50"
-                  >
-                    <span className="text-xs font-mono text-gray-700 truncate">{e}</span>
-                    <CopyButton text={e} />
+              <div style={{ display: "flex", flexDirection: "column", gap: 6 }}>
+                {co.emails.map((e, i) => (
+                  <div key={i} style={{ display: "flex", justifyContent: "space-between", alignItems: "center", padding: "8px 10px", borderRadius: 8, background: "#f3f4f6" }}>
+                    <span style={{ fontSize: 12, fontFamily: "monospace", color: "#1f2937" }}>{e}</span>
+                    <CopyBtn text={e} />
                   </div>
                 ))}
               </div>
             </div>
           )}
 
-          {/* Téléphones */}
-          {company.phones && company.phones.length > 0 && (
-            <div className="bg-white border border-gray-100 rounded-xl p-4">
-              <p className="text-[11px] font-semibold text-gray-400 uppercase tracking-wider mb-3 flex items-center gap-1.5">
-                <Phone size={11} />
-                Téléphones
+          {/* Phones */}
+          {co.phones?.length > 0 && (
+            <div style={{ background: "#fff", border: "1px solid #e5e7eb", borderRadius: 10, padding: "14px 16px" }}>
+              <p style={{ fontSize: 11, fontWeight: 600, color: T.teal, textTransform: "uppercase", margin: "0 0 12px", display: "flex", alignItems: "center", gap: 6 }}>
+                <Icon d={ICONS.phone} size={11} color={T.teal} /> Téléphones
               </p>
-              <div className="space-y-1.5">
-                {company.phones.map((p, i) => (
-                  <div
-                    key={i}
-                    className="flex items-center justify-between group px-2 py-1.5 rounded hover:bg-gray-50"
-                  >
-                    <span className="text-xs font-mono text-gray-700">{p}</span>
-                    <CopyButton text={p} />
+              <div style={{ display: "flex", flexDirection: "column", gap: 6 }}>
+                {co.phones.map((p, i) => (
+                  <div key={i} style={{ display: "flex", justifyContent: "space-between", alignItems: "center", padding: "8px 10px", borderRadius: 8, background: "#f3f4f6" }}>
+                    <span style={{ fontSize: 12, fontFamily: "monospace", color: "#1f2937" }}>{p}</span>
+                    <CopyBtn text={p} />
                   </div>
                 ))}
               </div>
             </div>
           )}
 
-          {/* Employés */}
+          {/* Employees */}
           <div>
-            <p className="text-[11px] font-semibold text-gray-400 uppercase tracking-wider mb-3 flex items-center gap-1.5">
-              <Users size={11} />
-              Employés vérifiés ({employees.length})
+            <p style={{ fontSize: 11, fontWeight: 600, color: T.teal, textTransform: "uppercase", margin: "0 0 12px", display: "flex", alignItems: "center", gap: 6 }}>
+              <Icon d={ICONS.users} size={11} color={T.teal} /> Employés ({emps.length})
             </p>
-            {employees.length > 0 ? (
-              <div className="space-y-2">
-                {employees.map((emp, i) => (
-                  <EmployeeCard key={i} employee={emp} />
-                ))}
-              </div>
-            ) : (
-              <p className="text-xs text-gray-300 italic px-1">Aucun employé trouvé</p>
-            )}
+            {emps.length > 0
+              ? <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>{emps.map((e, i) => <EmployeeCard key={i} emp={e} />)}</div>
+              : <p style={{ fontSize: 12, color: "#9ca3af", fontStyle: "italic" }}>Aucun employé</p>
+            }
           </div>
         </div>
       )}
 
       {tab === "markdown" && result?.results_markdown && (
-        <div className="bg-gray-50 rounded-xl p-4 text-xs text-gray-700 leading-relaxed whitespace-pre-wrap font-mono max-h-96 overflow-y-auto">
+        <div style={{ background: "#f9fafb", borderRadius: 10, padding: 16, fontSize: 12, color: "#1f2937", lineHeight: 1.8, whiteSpace: "pre-wrap", fontFamily: "monospace", maxHeight: 420, overflowY: "auto", border: "1px solid #e5e7eb" }}>
           {result.results_markdown}
         </div>
       )}
 
       {tab === "json" && result?.results_json && (
-        <div className="relative">
-          <div className="absolute top-3 right-3 z-10">
-            <CopyButton text={result.results_json} />
+        <div style={{ position: "relative" }}>
+          <div style={{ position: "absolute", top: 12, right: 12, zIndex: 1 }}>
+            <CopyBtn text={result.results_json} />
           </div>
-          <pre className="bg-gray-900 text-emerald-400 rounded-xl p-4 text-xs font-mono overflow-auto max-h-96 leading-relaxed">
+          <pre style={{ background: "#1f2937", color: "#10b981", borderRadius: 10, padding: 16, fontSize: 11, fontFamily: "monospace", overflowX: "auto", maxHeight: 420, lineHeight: 1.6, margin: 0, border: "1px solid #374151" }}>
             {JSON.stringify(JSON.parse(result.results_json), null, 2)}
           </pre>
         </div>
@@ -623,135 +478,104 @@ function ResultsPanel({
   );
 }
 
-function LogsPanel({ logs }: { logs: string[] }) {
-  const endRef = useRef<HTMLDivElement>(null);
-  useEffect(() => {
-    endRef.current?.scrollIntoView({ behavior: "smooth" });
-  }, [logs]);
-
-  if (!logs || logs.length === 0) {
-    return (
-      <div className="flex flex-col items-center justify-center py-16 text-center">
-        <div className="w-12 h-12 rounded-full bg-gray-100 flex items-center justify-center mb-3">
-          <Activity size={20} className="text-gray-300" />
-        </div>
-        <p className="text-sm font-medium text-gray-400">En attente des logs</p>
-        <p className="text-xs text-gray-300 mt-1">
-          Les logs apparaîtront ici une fois la recherche lancée
-        </p>
-      </div>
-    );
-  }
-
+// ─── Field ────────────────────────────────────────────────────────────────
+function Field({ label, field, value, onChange, disabled, placeholder, icon }) {
   return (
-    <div className="bg-gray-950 rounded-xl p-4 max-h-80 overflow-y-auto">
-      {logs.map((log, i) => (
-        <div key={i} className="flex items-start gap-2 py-0.5 font-mono text-xs">
-          <span className="text-gray-600 select-none w-6 text-right flex-shrink-0">
-            {i + 1}
+    <div>
+      <label style={{ display: "block", fontSize: 12, fontWeight: 600, color: "#374151", marginBottom: 6 }}>{label}</label>
+      <div style={{ position: "relative" }}>
+        {icon && (
+          <span style={{ position: "absolute", left: 11, top: "50%", transform: "translateY(-50%)", color: T.teal, display: "flex", pointerEvents: "none" }}>
+            {icon}
           </span>
-          <span
-            className={
-              log.includes("✅") || log.includes("OK")
-                ? "text-emerald-400"
-                : log.includes("❌") || log.includes("ERR")
-                ? "text-red-400"
-                : log.includes("⚠️")
-                ? "text-amber-400"
-                : log.includes("🛑")
-                ? "text-orange-400"
-                : "text-gray-400"
-            }
-          >
-            {log}
-          </span>
-        </div>
-      ))}
-      <div ref={endRef} />
+        )}
+        <input
+          type="text"
+          value={value}
+          onChange={e => onChange(field, e.target.value)}
+          disabled={disabled}
+          placeholder={placeholder}
+          style={{
+            width: "100%",
+            boxSizing: "border-box",
+            fontSize: 13,
+            padding: icon ? "10px 12px 10px 36px" : "10px 12px",
+            border: "1px solid #d1d5db",
+            borderRadius: 8,
+            background: "#fff",
+            color: "#1f2937",
+            outline: "none",
+            opacity: disabled ? 0.6 : 1,
+            transition: "border-color .2s, box-shadow .2s",
+          }}
+          onFocus={e => { if (!disabled) { e.target.style.borderColor = T.teal; e.target.style.boxShadow = `0 0 0 3px ${T.teal}22`; } }}
+          onBlur={e => { e.target.style.borderColor = "#d1d5db"; e.target.style.boxShadow = "none"; }}
+        />
+      </div>
     </div>
   );
 }
 
-// ────────────────────────────────────────────────────────────
-// COMPOSANT PRINCIPAL
-// ────────────────────────────────────────────────────────────
-
+// ─── Main Component ───────────────────────────────────────────────────────
 export default function OSINTDashboard() {
-  const [sessionId, setSessionId] = useState("");
-  const [formData, setFormData] = useState<OSINTFormData>({
-    company_name: "3LM Solutions",
+  const API_URL = process.env.NEXT_PUBLIC_API_Company_searsh_URL || "https://search-company-xc9u.onrender.com";
+
+  const [formData, setFormData] = useState({
+    company_name:   "3LM Solutions",
     company_handle: "3lm-solutions",
-    country_name: "Tunisia",
-    country_iso: "TN",
-    target_roles: "CEO, CTO, Développeur",
+    country_name:   "Tunisia",
+    country_iso:    "TN",
+    target_roles:   "CEO, CTO, Développeur",
   });
-  const [progress, setProgress] = useState<ProgressData | null>(null);
-  const [isRunning, setIsRunning] = useState(false);
-  const [isStopping, setIsStopping] = useState(false);
-  const [activeTab, setActiveTab] = useState<"logs" | "results">("logs");
-  const [isClient, setIsClient] = useState(false);
-  const [errorMsg, setErrorMsg] = useState("");
-  const [apiStatus, setApiStatus] = useState<"unknown" | "ok" | "error">(
-    "unknown"
-  );
+  const [sessionId, setSessionId] = useState("");
+  const [progress,  setProgress]  = useState(null);
+  const [status,    setStatus]    = useState("idle");
+  const [activeTab, setActiveTab] = useState("logs");
+  const [errorMsg,  setErrorMsg]  = useState("");
+  const [apiOk,     setApiOk]     = useState(null);
+  const [isClient,  setIsClient]  = useState(false);
+  const [sidebarOpen, setSidebarOpen] = useState(false);
+  const pollRef = useRef(null);
 
-  const apiUrl =
-    process.env.NEXT_PUBLIC_API_Company_searsh_URL ||
-    "https://search-company-xc9u.onrender.com";
-  const progressIntervalRef = useRef<NodeJS.Timeout | null>(null);
+  useEffect(() => { setIsClient(true); checkHealth(); }, []);
 
-  useEffect(() => {
-    setIsClient(true);
-    checkHealth();
-  }, []);
+  const isActive = ["running", "stopping"].includes(status);
 
-  // Polling principal
-  useEffect(() => {
-    if ((!isRunning && !isStopping) || !sessionId) return;
-
-    const poll = async () => {
+  const startPolling = useCallback((sid) => {
+    if (pollRef.current) clearInterval(pollRef.current);
+    pollRef.current = setInterval(async () => {
       try {
-        const res = await fetch(`${apiUrl}/progress/${sessionId}`);
-        if (!res.ok) throw new Error(`${res.status}`);
-        const data: ProgressData = await res.json();
+        const res = await fetch(`${API_URL}/progress/${sid}`);
+        if (!res.ok) throw new Error(res.status);
+        const data = await res.json();
         setProgress(data);
-
-        const terminal = ["completed", "stopped", "error"];
-        if (terminal.includes(data.status)) {
-          setIsRunning(false);
-          setIsStopping(false);
-          if (progressIntervalRef.current)
-            clearInterval(progressIntervalRef.current);
-          if (data.status === "completed" || data.status === "stopped") {
+        if (["completed", "stopped", "error"].includes(data.status)) {
+          setStatus(data.status);
+          clearInterval(pollRef.current);
+          if (["completed", "stopped"].includes(data.status)) {
             setActiveTab("results");
+            setSidebarOpen(false);
           }
         }
-      } catch (err) {
-        console.error("Poll error:", err);
-      }
-    };
+      } catch (e) { console.error("Poll:", e); }
+    }, 1000);
+  }, [API_URL]);
 
-    poll();
-    progressIntervalRef.current = setInterval(poll, 1000);
-    return () => {
-      if (progressIntervalRef.current) clearInterval(progressIntervalRef.current);
-    };
-  }, [isRunning, isStopping, sessionId, apiUrl]);
+  useEffect(() => () => { if (pollRef.current) clearInterval(pollRef.current); }, []);
 
   const checkHealth = async () => {
-    try {
-      const res = await fetch(`${apiUrl}/health`);
-      setApiStatus(res.ok ? "ok" : "error");
-    } catch {
-      setApiStatus("error");
-    }
+    try { const r = await fetch(`${API_URL}/health`); setApiOk(r.ok); }
+    catch { setApiOk(false); }
   };
 
-  const startOSINT = async () => {
+  const startSearch = async () => {
     try {
       setErrorMsg("");
-      setIsStopping(false);
-      const res = await fetch(`${apiUrl}/predict-osint`, {
+      setProgress(null);
+      setActiveTab("logs");
+      setStatus("running");
+      setSidebarOpen(false);
+      const res = await fetch(`${API_URL}/predict-osint`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify(formData),
@@ -759,354 +583,243 @@ export default function OSINTDashboard() {
       if (!res.ok) throw new Error(`${res.status}: ${await res.text()}`);
       const data = await res.json();
       setSessionId(data.session_id);
-      setIsRunning(true);
-      setProgress(null);
-      setActiveTab("logs");
-    } catch (err) {
-      setErrorMsg(`Erreur de lancement : ${err}`);
+      startPolling(data.session_id);
+    } catch (e) {
+      setErrorMsg(`Erreur: ${e}`);
+      setStatus("idle");
     }
   };
 
-  const stopOSINT = async () => {
-    if (!sessionId || isStopping) return;
+  const stopSearch = async () => {
+    if (!sessionId || status === "stopping") return;
+    setStatus("stopping");
+    setErrorMsg("");
     try {
-      setErrorMsg("");
-      setIsStopping(true);
-      const res = await fetch(`${apiUrl}/stop/${sessionId}`, { method: "POST" });
-      if (!res.ok) throw new Error(`Erreur lors de l'arrêt: ${res.status}`);
-      setIsRunning(false);
-    } catch (err) {
-      setErrorMsg(`Erreur arrêt : ${err}`);
-      setIsStopping(false);
+      const res = await fetch(`${API_URL}/stop/${sessionId}`, { method: "POST" });
+      if (!res.ok) throw new Error(`Erreur: ${res.status}`);
+    } catch (e) {
+      setErrorMsg(`Erreur arrêt: ${e}`);
     }
   };
+
+  const handleField = (field, val) => setFormData(p => ({ ...p, [field]: val }));
 
   if (!isClient) return null;
 
-  const currentStatus: ProgressData["status"] =
-    isStopping ? "stopping" : isRunning ? "running" : progress?.status ?? "idle";
-  const isPartialResult = progress?.result?.partial === true;
-  const isActive = isRunning || isStopping;
+  const pct = progress?.progress ?? 0;
+  const currentStatus = status === "stopping" ? "stopping" : progress?.status ?? status;
+
+  // ── Left panel ────────────────────────────────────────────────────
+  const LeftPanel = () => (
+    <div style={{ display: "flex", flexDirection: "column", gap: 16 }}>
+      {/* Form */}
+      <div style={{ background: "#fff", border: "1px solid #e5e7eb", borderRadius: 12, overflow: "hidden" }}>
+        <div style={{ padding: "14px 16px", borderBottom: "1px solid #e5e7eb", background: T.tealBg, display: "flex", alignItems: "center", gap: 8 }}>
+          <Icon d={ICONS.target} size={14} color={T.teal} />
+          <p style={{ fontSize: 13, fontWeight: 600, color: T.tealDark, margin: 0 }}>Paramètres</p>
+        </div>
+        <div style={{ padding: "16px", display: "flex", flexDirection: "column", gap: 14 }}>
+          <Field label="Nom" field="company_name" value={formData.company_name} onChange={handleField} disabled={isActive} placeholder="ex: Acme Corp" icon={<Icon d={ICONS.building} size={13} />} />
+          <Field label="Handle" field="company_handle" value={formData.company_handle} onChange={handleField} disabled={isActive} placeholder="ex: acme-corp" icon={<Icon d={ICONS.hash} size={13} />} />
+          <div style={{ display: "grid", gridTemplateColumns: "1fr 80px", gap: 10 }}>
+            <Field label="Pays" field="country_name" value={formData.country_name} onChange={handleField} disabled={isActive} placeholder="France" icon={<Icon d={ICONS.globe} size={13} />} />
+            <Field label="ISO" field="country_iso" value={formData.country_iso} onChange={handleField} disabled={isActive} placeholder="TN" />
+          </div>
+          <Field label="Rôles" field="target_roles" value={formData.target_roles} onChange={handleField} disabled={isActive} placeholder="CEO, Dev" icon={<Icon d={ICONS.users} size={13} />} />
+        </div>
+        <div style={{ padding: "0 16px 16px", display: "flex", flexDirection: "column", gap: 10 }}>
+          <button
+            onClick={startSearch}
+            disabled={isActive}
+            style={{ width: "100%", display: "flex", alignItems: "center", justifyContent: "center", gap: 8, padding: "11px", background: isActive ? `${T.teal}77` : T.teal, border: "none", borderRadius: 8, color: "#fff", fontSize: 13, fontWeight: 600, cursor: isActive ? "not-allowed" : "pointer" }}>
+            {status === "running"
+              ? <><Spinner size={14} color="#fff" />Recherche...</>
+              : <><Icon d={ICONS.play} size={14} color="#fff" />Lancer</>
+            }
+          </button>
+          {isActive && (
+            <button
+              onClick={stopSearch}
+              disabled={status === "stopping"}
+              style={{ width: "100%", display: "flex", alignItems: "center", justifyContent: "center", gap: 8, padding: "11px", background: "transparent", border: `1px solid ${T.red}`, borderRadius: 8, color: T.red, fontSize: 13, fontWeight: 600, cursor: status === "stopping" ? "not-allowed" : "pointer", opacity: status === "stopping" ? 0.6 : 1 }}>
+              {status === "stopping"
+                ? <><Spinner size={14} color={T.red} />Arrêt...</>
+                : <><Icon d={ICONS.stop} size={14} color={T.red} />Arrêter</>
+              }
+            </button>
+          )}
+        </div>
+      </div>
+
+      {/* Session */}
+      {sessionId && (
+        <div style={{ background: "#fff", border: "1px solid #e5e7eb", borderRadius: 12, padding: "16px" }}>
+          <p style={{ fontSize: 11, fontWeight: 600, color: T.teal, textTransform: "uppercase", marginBottom: 14, margin: "0 0 14px" }}>Session</p>
+          <div style={{ display: "flex", flexDirection: "column", gap: 12 }}>
+            <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
+              <span style={{ fontSize: 12, color: "#6b7280", fontWeight: 500 }}>Statut</span>
+              <StatusBadge status={currentStatus} />
+            </div>
+            <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
+              <span style={{ fontSize: 12, color: "#6b7280", fontWeight: 500 }}>ID</span>
+              <div style={{ display: "flex", alignItems: "center", gap: 6 }}>
+                <span style={{ fontSize: 11, fontFamily: "monospace", color: "#6b7280" }}>{sessionId.slice(0, 10)}…</span>
+                <CopyBtn text={sessionId} />
+              </div>
+            </div>
+            {progress && (
+              <>
+                <div>
+                  <div style={{ display: "flex", justifyContent: "space-between", marginBottom: 8, fontSize: 12 }}>
+                    <span style={{ color: "#6b7280" }}>{formatProgressLabel(pct)}</span>
+                    <span style={{ fontWeight: 600, color: T.teal }}>{Math.round(pct)}%</span>
+                  </div>
+                  <div style={{ height: 6, background: "#e5e7eb", borderRadius: 99, overflow: "hidden" }}>
+                    <div style={{ height: "100%", width: `${pct}%`, background: status === "stopping" ? T.orange : T.teal, borderRadius: 99, transition: "width .5s" }} />
+                  </div>
+                </div>
+                <ProgressSteps progress={pct} />
+              </>
+            )}
+          </div>
+        </div>
+      )}
+    </div>
+  );
 
   return (
-    <div className="min-h-screen bg-[#F7F8FA] font-sans">
-      {/* Header */}
-      <header className="bg-white border-b border-gray-100 px-6 py-3">
-        <div className="max-w-6xl mx-auto flex items-center justify-between">
-          <div className="flex items-center gap-2.5">
-            <div className="w-7 h-7 rounded-lg bg-blue-600 flex items-center justify-center">
-              <ShieldCheck size={14} className="text-white" />
-            </div>
-            <span className="font-semibold text-gray-800 text-sm">
-              OSINT Intelligence
-            </span>
-          </div>
-          <div className="flex items-center gap-3">
-            <div className="flex items-center gap-1.5 text-xs text-gray-500">
-              <span
-                className={`w-2 h-2 rounded-full ${
-                  apiStatus === "ok"
-                    ? "bg-emerald-400"
-                    : apiStatus === "error"
-                    ? "bg-red-400"
-                    : "bg-gray-300"
-                }`}
-              />
-              API{" "}
-              {apiStatus === "ok"
-                ? "connectée"
-                : apiStatus === "error"
-                ? "hors ligne"
-                : "..."}
-            </div>
-            <button
-              onClick={checkHealth}
-              className="p-1.5 rounded-lg hover:bg-gray-100 text-gray-400 hover:text-gray-600 transition-colors"
-            >
-              <RefreshCw size={13} />
-            </button>
-          </div>
-        </div>
-      </header>
+    <>
+      <style>{`
+        @keyframes pulse { 0%,100% { opacity:1; } 50% { opacity:.5; } }
+        @keyframes spin { to { transform: rotate(360deg); } }
+        * { box-sizing: border-box; }
+        body { margin: 0; background: #f9fafb; }
+        .osint-layout { display: grid; grid-template-columns: 300px 1fr; gap: 20px; align-items: start; }
+        .osint-sidebar-desktop { display: block; }
+        .osint-menu-btn { display: none; }
+        @media (max-width: 768px) {
+          .osint-layout { grid-template-columns: 1fr; }
+          .osint-sidebar-desktop { display: none; }
+          .osint-menu-btn { display: flex; }
+        }
+        .drawer-overlay { position: fixed; inset: 0; background: rgba(0,0,0,.5); z-index: 40; animation: fadeIn .2s; }
+        .drawer { position: fixed; left: 0; top: 0; bottom: 0; width: min(300px, 85vw); background: #fff; z-index: 50; overflow-y: auto; padding: 16px; animation: slideIn .25s ease; border-right: 1px solid #e5e7eb; }
+        @keyframes fadeIn { from { opacity: 0; } }
+        @keyframes slideIn { from { transform: translateX(-100%); } }
+        input:focus { border-color: ${T.teal} !important; outline: none !important; box-shadow: 0 0 0 3px ${T.teal}22 !important; }
+        ::-webkit-scrollbar { width: 6px; }
+        ::-webkit-scrollbar-track { background: transparent; }
+        ::-webkit-scrollbar-thumb { background: #d1d5db; border-radius: 3px; }
+        ::-webkit-scrollbar-thumb:hover { background: #9ca3af; }
+      `}</style>
 
-      {/* Main */}
-      <main className="max-w-6xl mx-auto px-6 py-8">
-        <div className="mb-8">
-          <h1 className="text-2xl font-bold text-gray-900">Recherche entreprise</h1>
-          <p className="text-sm text-gray-500 mt-1">
-            Collecte d'intelligence sur les sociétés, employés et contacts
-          </p>
-        </div>
+      <div style={{ minHeight: "100vh", background: "#f9fafb", fontFamily: "-apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif" }}>
 
-        {errorMsg && (
-          <div className="mb-6 flex items-start gap-3 p-4 bg-red-50 border border-red-100 rounded-xl text-sm text-red-700">
-            <AlertCircle size={16} className="flex-shrink-0 mt-0.5" />
-            <div>
-              <p className="font-medium">Une erreur est survenue</p>
-              <p className="text-xs mt-0.5 text-red-500">{errorMsg}</p>
+        {/* Header */}
+        <header style={{ background: "#fff", borderBottom: "1px solid #e5e7eb", padding: "0 16px", position: "sticky", top: 0, zIndex: 30 }}>
+          <div style={{ maxWidth: 1220, margin: "0 auto", display: "flex", alignItems: "center", justifyContent: "space-between", height: 56 }}>
+            <div style={{ display: "flex", alignItems: "center", gap: 12 }}>
+              <button className="osint-menu-btn" onClick={() => setSidebarOpen(true)}
+                style={{ background: "transparent", border: "none", cursor: "pointer", color: T.teal, padding: 6 }}>
+                <Icon d={ICONS.menu} size={20} />
+              </button>
+              <div style={{ width: 36, height: 36, borderRadius: 10, background: T.teal, display: "flex", alignItems: "center", justifyContent: "center" }}>
+                <Icon d={ICONS.shield} size={16} color="#fff" />
+              </div>
+              <span style={{ fontWeight: 600, fontSize: 15, color: "#1f2937" }}>OSINT Intelligence</span>
             </div>
-            <button
-              onClick={() => setErrorMsg("")}
-              className="ml-auto text-red-400 hover:text-red-600"
-            >
-              <XCircle size={14} />
-            </button>
+            <div style={{ display: "flex", alignItems: "center", gap: 12 }}>
+              <div style={{ display: "flex", alignItems: "center", gap: 8, fontSize: 12, color: "#6b7280", background: "#f3f4f6", padding: "6px 12px", borderRadius: 8 }}>
+                <span style={{ width: 8, height: 8, borderRadius: "50%", background: apiOk === null ? "#9ca3af" : apiOk ? T.teal : T.red, ...(apiOk === true ? { animation: "pulse 2s infinite" } : {}) }} />
+                {apiOk === null ? "Vérification" : apiOk ? "Connectée" : "Hors ligne"}
+              </div>
+              <button onClick={checkHealth}
+                style={{ padding: "6px 10px", border: "1px solid #e5e7eb", borderRadius: 8, background: "#fff", cursor: "pointer", color: T.teal, display: "flex" }}>
+                <Icon d={ICONS.refresh} size={14} />
+              </button>
+            </div>
           </div>
+        </header>
+
+        {/* Mobile drawer */}
+        {sidebarOpen && (
+          <>
+            <div className="drawer-overlay" onClick={() => setSidebarOpen(false)} />
+            <div className="drawer">
+              <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 20 }}>
+                <span style={{ fontSize: 14, fontWeight: 600, color: "#1f2937" }}>Paramètres</span>
+                <button onClick={() => setSidebarOpen(false)} style={{ background: "transparent", border: "none", cursor: "pointer", color: "#6b7280" }}>
+                  <Icon d={ICONS.x} size={18} />
+                </button>
+              </div>
+              <LeftPanel />
+            </div>
+          </>
         )}
 
-        <div className="grid grid-cols-1 lg:grid-cols-[360px_1fr] gap-6">
-          {/* Panneau gauche */}
-          <div className="space-y-4">
-            <div className="bg-white rounded-2xl border border-gray-100 overflow-hidden">
-              <div className="px-5 py-4 border-b border-gray-50">
-                <p className="text-sm font-semibold text-gray-700">
-                  Paramètres de recherche
-                </p>
-              </div>
-              <div className="px-5 py-4 space-y-4">
-                {(
-                  [
-                    {
-                      field: "company_name",
-                      label: "Nom de la société",
-                      placeholder: "ex: Acme Corp",
-                      icon: <Building2 size={13} className="text-gray-400" />,
-                    },
-                    {
-                      field: "company_handle",
-                      label: "Handle (slug)",
-                      placeholder: "ex: acme-corp",
-                      icon: <Hash size={13} className="text-gray-400" />,
-                    },
-                    {
-                      field: "country_name",
-                      label: "Pays",
-                      placeholder: "ex: France",
-                      icon: <Globe size={13} className="text-gray-400" />,
-                    },
-                    {
-                      field: "country_iso",
-                      label: "Code ISO",
-                      placeholder: "ex: TN",
-                      icon: null,
-                    },
-                    {
-                      field: "target_roles",
-                      label: "Rôles ciblés (optionnel)",
-                      placeholder: "ex: CEO, Développeur",
-                      icon: <Target size={13} className="text-gray-400" />,
-                    },
-                  ] as Array<{
-                    field: keyof OSINTFormData;
-                    label: string;
-                    placeholder: string;
-                    icon: React.ReactNode | null;
-                  }>
-                ).map(({ field, label, placeholder, icon }) => (
-                  <div key={field}>
-                    <label className="block text-xs font-medium text-gray-600 mb-1.5">
-                      {label}
-                    </label>
-                    <div className="relative">
-                      {icon && (
-                        <div className="absolute left-3 top-1/2 -translate-y-1/2">
-                          {icon}
-                        </div>
-                      )}
-                      <input
-                        type="text"
-                        value={formData[field]}
-                        onChange={(e) =>
-                          setFormData((p) => ({
-                            ...p,
-                            [field]: e.target.value,
-                          }))
-                        }
-                        disabled={isActive}
-                        placeholder={placeholder}
-                        className={`w-full text-sm border border-gray-200 rounded-xl py-2.5 pr-3 bg-gray-50 text-gray-800 placeholder:text-gray-300 focus:outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-400 disabled:opacity-50 disabled:cursor-not-allowed transition-all ${
-                          icon ? "pl-8" : "pl-3"
-                        }`}
-                      />
-                    </div>
-                  </div>
-                ))}
-              </div>
-              <div className="px-5 pb-5 space-y-2">
-                <button
-                  onClick={startOSINT}
-                  disabled={isActive}
-                  className="w-full flex items-center justify-center gap-2 py-2.5 px-4 bg-blue-600 hover:bg-blue-700 disabled:opacity-50 disabled:cursor-not-allowed text-white text-sm font-medium rounded-xl transition-colors"
-                >
-                  {isRunning ? (
-                    <>
-                      <Loader2 size={14} className="animate-spin" />
-                      Recherche en cours...
-                    </>
-                  ) : (
-                    <>
-                      <Play size={14} />
-                      Lancer la recherche
-                    </>
-                  )}
-                </button>
+        {/* Main */}
+        <main style={{ maxWidth: 1220, margin: "0 auto", padding: "20px 16px 40px" }}>
+          <div style={{ marginBottom: 24 }}>
+            <h1 style={{ fontSize: 22, fontWeight: 600, color: "#1f2937", margin: 0 }}>Recherche entreprise</h1>
+            <p style={{ fontSize: 13, color: "#6b7280", margin: "4px 0 0" }}>Intelligence — sociétés, employés et contacts</p>
+          </div>
 
-                {isActive && (
-                  <button
-                    onClick={stopOSINT}
-                    disabled={isStopping}
-                    className="w-full flex items-center justify-center gap-2 py-2.5 px-4 bg-white border border-red-200 hover:bg-red-50 disabled:opacity-60 disabled:cursor-not-allowed text-red-600 text-sm font-medium rounded-xl transition-colors"
-                  >
-                    {isStopping ? (
-                      <>
-                        <Loader2 size={14} className="animate-spin" />
-                        Arrêt en cours...
-                      </>
-                    ) : (
-                      <>
-                        <Square size={14} />
-                        Arrêter
-                      </>
-                    )}
-                  </button>
-                )}
+          {errorMsg && (
+            <div style={{ marginBottom: 16, display: "flex", alignItems: "flex-start", gap: 12, padding: "12px 14px", background: T.redBg, border: `1px solid #fecaca`, borderRadius: 10 }}>
+              <Icon d={ICONS.alertCircle} size={16} color={T.red} />
+              <div style={{ flex: 1 }}>
+                <p style={{ fontSize: 12, fontWeight: 600, color: T.red, margin: 0 }}>Erreur</p>
+                <p style={{ fontSize: 12, color: "#991b1b", margin: "2px 0 0" }}>{errorMsg}</p>
               </div>
+              <button onClick={() => setErrorMsg("")} style={{ background: "transparent", border: "none", cursor: "pointer", color: T.red }}>
+                <Icon d={ICONS.x} size={14} />
+              </button>
+            </div>
+          )}
+
+          <div className="osint-layout">
+            <div className="osint-sidebar-desktop" style={{ position: "sticky", top: 76 }}>
+              <LeftPanel />
             </div>
 
-            {/* Session card */}
-            {sessionId && (
-              <div className="bg-white rounded-2xl border border-gray-100 px-5 py-4">
-                <p className="text-[11px] font-semibold text-gray-400 uppercase tracking-wider mb-3">
-                  Session active
-                </p>
-                <div className="space-y-2.5">
-                  <div className="flex items-center justify-between">
-                    <span className="text-xs text-gray-500">Statut</span>
-                    <StatusPill status={currentStatus} />
-                  </div>
-                  <div className="flex items-center justify-between">
-                    <span className="text-xs text-gray-500">ID</span>
-                    <div className="flex items-center gap-1">
-                      <span className="text-xs font-mono text-gray-600">
-                        {sessionId.slice(0, 12)}…
-                      </span>
-                      <CopyButton text={sessionId} />
-                    </div>
-                  </div>
-                  {progress && (
-                    <>
-                      <div>
-                        <div className="flex items-center justify-between mb-1.5">
-                          <span className="text-xs text-gray-500">Progression</span>
-                          <span className="text-xs font-semibold text-gray-700">
-                            {Math.round(progress.progress)}%
-                          </span>
-                        </div>
-                        <div className="w-full h-1.5 bg-gray-100 rounded-full overflow-hidden">
-                          <div
-                            className={`h-full rounded-full transition-all duration-500 ${
-                              isStopping ? "bg-orange-400" : "bg-blue-500"
-                            }`}
-                            style={{ width: `${progress.progress}%` }}
-                          />
-                        </div>
-                      </div>
-                      <div className="pt-2">
-                        <p className="text-xs text-gray-500 mb-1.5">
-                          {formatProgressLabel(progress.progress)}
-                        </p>
-                      </div>
-                      <ProgressSteps progress={progress.progress} />
-                    </>
+            <div style={{ background: "#fff", border: "1px solid #e5e7eb", borderRadius: 12, overflow: "hidden" }}>
+              <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", padding: "12px 16px", borderBottom: "1px solid #e5e7eb", background: "#fafafa", flexWrap: "wrap", gap: 12 }}>
+                <div style={{ display: "flex", gap: 2, padding: 3, background: "#fff", borderRadius: 8, border: "1px solid #e5e7eb" }}>
+                  {[
+                    { id: "logs",    label: "Logs",      icon: ICONS.activity },
+                    { id: "results", label: "Résultats", icon: ICONS.users },
+                  ].map(t => {
+                    const active = activeTab === t.id;
+                    return (
+                      <button key={t.id} onClick={() => setActiveTab(t.id)}
+                        style={{ fontSize: 12, fontWeight: 500, padding: "6px 12px", borderRadius: 6, border: "none", cursor: "pointer", display: "flex", alignItems: "center", gap: 4, background: active ? T.teal : "transparent", color: active ? "#fff" : "#6b7280" }}>
+                        <Icon d={t.icon} size={12} />
+                        {t.label}
+                        {t.id === "logs" && progress?.logs?.length > 0 && (
+                          <span style={{ fontSize: 10, fontWeight: 600, background: active ? "#ffffff44" : "#f3f4f6", color: active ? "#fff" : "#6b7280", padding: "1px 6px", borderRadius: 99, marginLeft: 2 }}>{progress.logs.length}</span>
+                        )}
+                      </button>
+                    );
+                  })}
+                </div>
+
+                <div style={{ fontSize: 12 }}>
+                  {status === "running" && !["completed","stopped","error"].includes(progress?.status) && (
+                    <span style={{ display: "flex", alignItems: "center", gap: 6, color: T.tealDark, background: T.tealBg, padding: "6px 12px", borderRadius: 8, fontWeight: 500 }}>
+                      <Spinner size={12} color={T.teal} />{Math.round(pct)}%
+                    </span>
                   )}
                 </div>
               </div>
-            )}
-          </div>
 
-          {/* Panneau droit */}
-          <div className="bg-white rounded-2xl border border-gray-100 overflow-hidden">
-            <div className="flex items-center justify-between px-5 py-3 border-b border-gray-50">
-              <div className="flex gap-1 p-1 bg-gray-100 rounded-lg">
-                <button
-                  onClick={() => setActiveTab("logs")}
-                  className={`flex items-center gap-1.5 text-xs font-medium px-3 py-1.5 rounded-md transition-all ${
-                    activeTab === "logs"
-                      ? "bg-white text-gray-800 shadow-sm"
-                      : "text-gray-500 hover:text-gray-700"
-                  }`}
-                >
-                  <Activity size={11} />
-                  Logs
-                  {progress?.logs?.length ? (
-                    <span className="ml-0.5 bg-blue-100 text-blue-600 text-[10px] font-semibold px-1.5 py-0.5 rounded-full">
-                      {progress.logs.length}
-                    </span>
-                  ) : null}
-                </button>
-                <button
-                  onClick={() => setActiveTab("results")}
-                  className={`flex items-center gap-1.5 text-xs font-medium px-3 py-1.5 rounded-md transition-all ${
-                    activeTab === "results"
-                      ? "bg-white text-gray-800 shadow-sm"
-                      : "text-gray-500 hover:text-gray-700"
-                  }`}
-                >
-                  <Users size={11} />
-                  Résultats
-                  {(progress?.status === "completed" ||
-                    progress?.status === "stopped") && (
-                    <CheckCircle size={10} className="text-emerald-500" />
-                  )}
-                </button>
+              <div style={{ padding: 16 }}>
+                {activeTab === "logs"    && <LogsPanel    logs={progress?.logs ?? []} />}
+                {activeTab === "results" && <ResultsPanel result={progress?.result ?? {}} isPartial={progress?.result?.partial === true} />}
               </div>
-
-              {progress?.status === "completed" && (
-                <span className="flex items-center gap-1.5 text-xs font-medium text-emerald-600 bg-emerald-50 px-3 py-1.5 rounded-full">
-                  <CheckCircle size={11} />
-                  Terminé
-                </span>
-              )}
-              {progress?.status === "stopped" && (
-                <span className="flex items-center gap-1.5 text-xs font-medium text-orange-600 bg-orange-50 px-3 py-1.5 rounded-full">
-                  <AlertCircle size={11} />
-                  Arrêté
-                </span>
-              )}
-              {progress?.status === "error" && (
-                <span className="flex items-center gap-1.5 text-xs font-medium text-red-600 bg-red-50 px-3 py-1.5 rounded-full">
-                  <XCircle size={11} />
-                  Erreur
-                </span>
-              )}
-              {isStopping && (
-                <span className="flex items-center gap-1.5 text-xs font-medium text-orange-500 bg-orange-50 px-3 py-1.5 rounded-full">
-                  <Loader2 size={11} className="animate-spin" />
-                  Arrêt en cours...
-                </span>
-              )}
-              {isRunning && !isStopping && (
-                <span className="flex items-center gap-1.5 text-xs font-medium text-blue-600 bg-blue-50 px-3 py-1.5 rounded-full">
-                  <Zap size={11} className="text-blue-400" />
-                  {Math.round(progress?.progress ?? 0)}%
-                </span>
-              )}
-            </div>
-
-            <div className="p-5">
-              {activeTab === "logs" && (
-                <LogsPanel logs={progress?.logs ?? []} />
-              )}
-              {activeTab === "results" && (
-                <ResultsPanel
-                  result={progress?.result ?? {}}
-                  isPartial={isPartialResult}
-                />
-              )}
             </div>
           </div>
-        </div>
-      </main>
-    </div>
+        </main>
+      </div>
+    </>
   );
 }

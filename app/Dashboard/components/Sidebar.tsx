@@ -79,7 +79,6 @@ const MENU_BY_ROLE: Record<UserRole, any[]> = {
     { href: "/Dashboard", label: "Dashboard", icon: LayoutDashboard, section: "Principal" },
   ],
   [UserRole.MARKETING_MANAGER]: [
-    { href: "/Dashboard", label: "Dashboard", icon: LayoutDashboard, section: "Principal" },
     { href: "/Dashboard/marketing", label: "Hub Marketing", icon: Megaphone },
   ],
   [UserRole.QUALITY_MANAGER]: [
@@ -97,12 +96,10 @@ const MENU_BY_ROLE: Record<UserRole, any[]> = {
     { href: "/Dashboard", label: "Mes Appels", icon: PhoneCall, section: "Appels" },
   ],
   [UserRole.COMMERCIAL]: [
-    { href: "/Dashboard", label: "Dashboard", icon: LayoutDashboard, section: "Principal" },
     { href: "/Dashboard/commerciale", label: "Recherche Société", icon: CompanySearchIcon, section: "Prospection" },
     { href: "/Dashboard/commerciale/recomandationindistry", label: "Recommandation Industries", icon: CompanySearchIcon },
   ],
   [UserRole.MARKETING_AGENT]: [
-
     { href: "/Dashboard/marketing", label: "Génération d'Images", icon: Megaphone, section: "Marketing" },
   ],
   [UserRole.QUALITE_AGENT]: [
@@ -192,12 +189,12 @@ export default function Sidebar({ isMobile, sidebarOpen, onCloseSidebar }: Sideb
   return (
     <aside
       className={`
-        fixed md:relative top-0 left-0 z-40 flex flex-col h-screen bg-white border-r border-slate-200/80
+        fixed md:relative top-0 left-0 z-40 flex flex-col h-screen bg-gradient-to-b from-white to-slate-50 border-r border-slate-200/80
         shadow-[1px_0_12px_rgba(0,0,0,0.04)] flex-shrink-0
         transition-[width] duration-300 ease-in-out
         ${isMobile
-          ? open ? "w-64" : "w-0 md:w-64"
-          : open ? "w-64" : "w-[68px]"
+          ? open ? "w-72" : "w-0 md:w-64"
+          : open ? "w-64" : "w-20"
         }
       `}
     >
@@ -228,14 +225,14 @@ export default function Sidebar({ isMobile, sidebarOpen, onCloseSidebar }: Sideb
       )}
 
       {/* Brand Header */}
-      <div className={`flex items-center gap-3 py-4 md:py-5 border-b border-slate-100 ${open ? "px-4 md:px-5" : "px-4 md:px-[18px] justify-center"}`}>
-        <div className="w-8 md:w-9 h-8 md:h-9 rounded-xl bg-blue-600 flex items-center justify-center flex-shrink-0 shadow-md shadow-blue-200/60">
-          <ShieldCheck size={16} className="md:w-[17px] md:h-[17px] text-white" strokeWidth={2.2} />
+      <div className={`flex items-center gap-3 py-4 border-b border-slate-100 ${open ? "px-4" : "px-3 justify-center"}`}>
+        <div className="w-9 h-9 rounded-xl bg-gradient-to-br from-blue-600 to-blue-700 flex items-center justify-center flex-shrink-0 shadow-lg">
+          <ShieldCheck size={18} className="text-white" strokeWidth={2.2} />
         </div>
         {open && (
           <div className="min-w-0">
-            <p className="text-[12px] md:text-[13px] font-bold text-slate-800 tracking-tight leading-none truncate">Admin Panel</p>
-            <div className={`mt-1.5 inline-flex items-center gap-1.5 px-2 py-0.5 rounded-full text-[9px] md:text-[10px] font-semibold ${meta.badgeBg} ${meta.badgeText} whitespace-nowrap`}>
+            <p className="text-[13px] font-bold text-slate-800 tracking-tight leading-none truncate">Admin Panel</p>
+            <div className={`mt-1.5 inline-flex items-center gap-1.5 px-2 py-0.5 rounded-full text-[9px] font-semibold ${meta.badgeBg} ${meta.badgeText} whitespace-nowrap`}>
               <span className={`w-1.5 h-1.5 rounded-full ${meta.dot}`} />
               {meta.label}
             </div>
@@ -244,18 +241,18 @@ export default function Sidebar({ isMobile, sidebarOpen, onCloseSidebar }: Sideb
       </div>
 
       {/* Navigation */}
-      <nav className="flex-1 overflow-y-auto overflow-x-hidden py-4 px-2 md:px-3 [&::-webkit-scrollbar]:w-0">
+      <nav className="flex-1 overflow-y-auto overflow-x-hidden py-5 px-2 [&::-webkit-scrollbar]:w-1.5 [&::-webkit-scrollbar-track]:bg-transparent [&::-webkit-scrollbar-thumb]:bg-slate-200 [&::-webkit-scrollbar-thumb]:rounded-full">
         {grouped.map((group, gi) => (
-          <div key={gi} className={gi > 0 ? "mt-4" : ""}>
+          <div key={gi} className={gi > 0 ? "mt-5" : ""}>
             {/* Section label */}
             {group.section && open && (
-              <p className="text-[9px] md:text-[10px] font-bold uppercase tracking-[0.12em] text-slate-400 px-2 mb-1.5">
+              <p className="text-[10px] font-bold uppercase tracking-[0.12em] text-slate-400 px-2 mb-2">
                 {group.section}
               </p>
             )}
-            {group.section && !open && <div className="h-2" />}
+            {group.section && !open && <div className="h-1.5" />}
 
-            <div className="space-y-0.5">
+            <div className="space-y-1">
               {group.items.map((item) => {
                 const isActive = pathname === item.href;
                 const Icon = item.icon;
@@ -265,23 +262,24 @@ export default function Sidebar({ isMobile, sidebarOpen, onCloseSidebar }: Sideb
                     href={item.href}
                     onClick={() => isMobile && onCloseSidebar()}
                     className={`
-                      relative group flex items-center rounded-lg md:rounded-xl
-                      text-[12px] md:text-[13px] font-medium transition-all duration-150
-                      ${open ? "gap-2 md:gap-3 px-2 md:px-3 py-2 md:py-2.5" : "justify-center px-2 md:px-2 py-2 md:py-2.5"}
+                      relative group flex items-center rounded-lg
+                      text-[13px] font-medium transition-all duration-150
+                      ${open ? "gap-3 px-3 py-2.5" : "justify-center px-3 py-2.5"}
                       ${isActive
-                        ? "bg-blue-600 text-white shadow-md shadow-blue-200/50"
-                        : "text-slate-500 hover:bg-slate-50 hover:text-slate-800"
+                        ? "bg-blue-600 text-white shadow-md shadow-blue-200/60"
+                        : "text-slate-600 hover:bg-slate-100 hover:text-slate-900"
                       }
                     `}
+                    title={!open ? item.label : ""}
                   >
-                    <span className={`flex-shrink-0 ${isActive ? "text-white" : "text-slate-400 group-hover:text-slate-600"} transition-colors`}>
-                      <Icon size={16} className="md:w-[17px] md:h-[17px]" />
+                    <span className={`flex-shrink-0 ${isActive ? "text-white" : "text-slate-500 group-hover:text-slate-700"} transition-colors`}>
+                      <Icon size={18} />
                     </span>
                     {open && (
                       <>
                         <span className="truncate leading-none flex-1">{item.label}</span>
                         {isActive && (
-                          <span className="ml-auto w-1.5 h-1.5 rounded-full bg-white/60" />
+                          <span className="ml-auto w-1.5 h-1.5 rounded-full bg-white/70" />
                         )}
                       </>
                     )}
@@ -294,17 +292,17 @@ export default function Sidebar({ isMobile, sidebarOpen, onCloseSidebar }: Sideb
       </nav>
 
       {/* Footer — user + logout */}
-      <div className="border-t border-slate-100 p-2 md:p-3 space-y-1">
-        <div className={`flex items-center gap-2 md:gap-3 rounded-lg md:rounded-xl bg-slate-50 px-2 md:px-3 py-2 md:py-2.5 ${!open && "justify-center"}`}>
-          <div className={`w-7 md:w-8 h-7 md:h-8 rounded-lg flex-shrink-0 flex items-center justify-center text-[10px] md:text-[11px] font-bold ${meta.avatarBg} ${meta.avatarText}`}>
+      <div className="border-t border-slate-100 bg-slate-50/50 p-3 space-y-2">
+        <div className={`flex items-center gap-3 rounded-lg bg-white px-3 py-2.5 border border-slate-100 ${!open && "justify-center"}`}>
+          <div className={`w-8 h-8 rounded-lg flex-shrink-0 flex items-center justify-center text-[11px] font-bold ${meta.avatarBg} ${meta.avatarText} shadow-sm`}>
             {initials}
           </div>
           {open && (
             <div className="min-w-0 flex-1">
-              <p className="text-[11px] md:text-[12px] font-semibold text-slate-800 truncate leading-none">
+              <p className="text-[12px] font-semibold text-slate-800 truncate leading-none">
                 {currentUser.fullname || "Utilisateur"}
               </p>
-              <p className={`text-[10px] md:text-[11px] mt-0.5 truncate font-medium ${meta.badgeText}`}>{meta.label}</p>
+              <p className={`text-[10px] mt-1 truncate font-medium ${meta.badgeText}`}>{meta.label}</p>
             </div>
           )}
         </div>
@@ -312,13 +310,14 @@ export default function Sidebar({ isMobile, sidebarOpen, onCloseSidebar }: Sideb
         <button
           onClick={logout}
           className={`
-            w-full flex items-center rounded-lg md:rounded-xl px-2 md:px-3 py-2 md:py-2.5
-            text-[12px] md:text-[13px] font-medium text-slate-400
+            w-full flex items-center rounded-lg px-3 py-2.5
+            text-[13px] font-medium text-slate-500
             hover:bg-red-50 hover:text-red-600 transition-all duration-150
-            ${open ? "gap-2 md:gap-3" : "justify-center"}
+            ${open ? "gap-3" : "justify-center"}
           `}
+          title={!open ? "Déconnexion" : ""}
         >
-          <LogOut size={16} className="md:w-[16px] md:h-[16px]" />
+          <LogOut size={18} />
           {open && <span>Déconnexion</span>}
         </button>
       </div>
