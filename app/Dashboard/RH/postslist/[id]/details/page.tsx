@@ -56,6 +56,342 @@ type UserSummary = {
   role?: string;
 };
 
+// ── Global Styles ─────────────────────────────────────────────
+
+const css = `
+@import url('https://fonts.googleapis.com/css2?family=Sora:wght@300;400;500;600;700;800&family=DM+Mono:wght@400;500&display=swap');
+
+:root {
+  --t50:  #f0fdfa;
+  --t100: #ccfbf1;
+  --t200: #99f6e4;
+  --t300: #5eead4;
+  --t400: #2dd4bf;
+  --t500: #14b8a6;
+  --t600: #0d9488;
+  --t700: #0f766e;
+  --c400: #22d3ee;
+  --c500: #06b6d4;
+  --glass: rgba(255,255,255,0.75);
+  --gborder: rgba(20,184,166,0.15);
+  --text: #0f172a;
+  --muted: #64748b;
+  --light: #94a3b8;
+  --surface: #f8fafc;
+}
+
+.pd-root {
+  font-family: 'Sora', sans-serif;
+  min-height: 100vh;
+  background: linear-gradient(145deg, #f0fdfa 0%, #e0f2fe 45%, #f0fdf4 80%, #fafafa 100%);
+  position: relative;
+}
+.pd-root::before {
+  content: '';
+  position: fixed; top: -100px; right: -100px;
+  width: 380px; height: 380px;
+  background: radial-gradient(circle, rgba(45,212,191,0.18) 0%, transparent 70%);
+  border-radius: 50%; pointer-events: none; z-index: 0;
+}
+.pd-root::after {
+  content: '';
+  position: fixed; bottom: -60px; left: -60px;
+  width: 280px; height: 280px;
+  background: radial-gradient(circle, rgba(34,211,238,0.14) 0%, transparent 70%);
+  border-radius: 50%; pointer-events: none; z-index: 0;
+}
+
+.pd-inner {
+  position: relative; z-index: 1;
+  max-width: 780px;
+  margin: 0 auto;
+  padding: 28px 16px 56px;
+}
+@media (min-width: 640px) { .pd-inner { padding: 40px 24px 64px; } }
+
+/* Back button */
+.pd-back {
+  display: inline-flex; align-items: center; gap: 6px;
+  font-size: 13px; font-weight: 600;
+  color: var(--t600);
+  background: white;
+  border: 1.5px solid var(--t200);
+  padding: 7px 14px; border-radius: 100px;
+  cursor: pointer; text-decoration: none;
+  margin-bottom: 20px;
+  transition: all 0.2s;
+}
+.pd-back:hover { background: var(--t50); border-color: var(--t300); }
+
+/* Card */
+.card {
+  background: var(--glass);
+  backdrop-filter: blur(14px);
+  -webkit-backdrop-filter: blur(14px);
+  border: 1.5px solid var(--gborder);
+  border-radius: 20px;
+  box-shadow: 0 4px 24px rgba(20,184,166,0.07), 0 1px 4px rgba(0,0,0,0.04);
+  margin-bottom: 14px;
+  overflow: hidden;
+}
+.card-pad { padding: 20px; }
+@media (min-width: 480px) { .card-pad { padding: 24px; } }
+
+/* Section header */
+.sec-title {
+  font-size: 13px; font-weight: 700;
+  color: var(--t700);
+  letter-spacing: 0.3px;
+  margin: 0 0 14px;
+  display: flex; align-items: center; gap: 6px;
+}
+
+/* Divider */
+.div { height: 1px; background: linear-gradient(90deg, transparent, var(--t100), transparent); margin: 16px 0; }
+
+/* ── Header card ── */
+.hdr-row { display: flex; align-items: flex-start; gap: 16px; }
+.hdr-left { flex: 1; min-width: 0; }
+.hdr-right { shrink: 0; text-align: center; }
+
+.post-title {
+  font-size: 20px; font-weight: 800;
+  color: var(--text);
+  line-height: 1.2; margin: 0 0 8px;
+}
+@media (min-width: 480px) { .post-title { font-size: 23px; } }
+
+.badge-row { display: flex; flex-wrap: wrap; gap: 6px; align-items: center; margin-bottom: 8px; }
+
+.badge {
+  font-size: 11px; font-weight: 600;
+  padding: 3px 10px; border-radius: 100px; border: 1.5px solid;
+}
+.badge-teal   { background: var(--t50);  color: var(--t700); border-color: var(--t200); }
+.badge-green  { background: #f0fdf4;     color: #15803d;     border-color: #bbf7d0; }
+.badge-yellow { background: #fffbeb;     color: #b45309;     border-color: #fde68a; }
+.badge-purple { background: #faf5ff;     color: #7e22ce;     border-color: #e9d5ff; }
+.badge-red    { background: #fff1f2;     color: #be123c;     border-color: #fecdd3; }
+.badge-blue   { background: #eff6ff;     color: #1d4ed8;     border-color: #bfdbfe; }
+.badge-slate  { background: #f1f5f9;     color: #475569;     border-color: #e2e8f0; }
+.badge-active   { background: #ecfdf5; color: #059669; border-color: #a7f3d0; }
+.badge-inactive { background: #fff1f2;  color: #e11d48; border-color: #fecdd3; }
+
+.meta-text { font-size: 11.5px; color: var(--light); margin: 0 0 10px; }
+
+/* Creator */
+.creator { display: flex; align-items: center; gap: 8px; }
+.creator-avatar {
+  width: 32px; height: 32px; border-radius: 50%;
+  background: linear-gradient(135deg, var(--t400), var(--c500));
+  display: flex; align-items: center; justify-content: center;
+  font-size: 11px; font-weight: 700; color: white; flex-shrink: 0;
+}
+.creator-name { font-size: 12.5px; font-weight: 600; color: var(--text); }
+.creator-role { font-size: 11px; color: var(--light); }
+
+/* Score hero (header) */
+.score-hero-sm {
+  background: linear-gradient(135deg, var(--t50), #e0f2fe);
+  border: 1.5px solid var(--t100);
+  border-radius: 16px;
+  padding: 14px 18px;
+  text-align: center;
+  min-width: 90px;
+}
+.score-hero-sm-num {
+  font-size: 36px; font-weight: 800;
+  background: linear-gradient(135deg, var(--t700), #0891b2);
+  -webkit-background-clip: text; -webkit-text-fill-color: transparent; background-clip: text;
+  line-height: 1;
+}
+.score-hero-sm-label { font-size: 10px; color: var(--muted); font-weight: 500; margin-top: 2px; }
+.score-hero-sm-count { font-size: 11.5px; color: var(--t600); font-weight: 600; margin-top: 4px; }
+
+/* Action buttons */
+.action-row {
+  display: flex; gap: 8px; flex-wrap: wrap;
+  margin-top: 16px; padding-top: 16px;
+  border-top: 1.5px solid var(--t100);
+}
+.btn-edit {
+  padding: 9px 18px; font-size: 13px; font-weight: 600;
+  font-family: 'Sora', sans-serif;
+  background: white; border: 1.5px solid var(--t200);
+  color: var(--t700); border-radius: 12px; cursor: pointer;
+  transition: all 0.2s;
+}
+.btn-edit:hover { background: var(--t50); border-color: var(--t300); }
+.btn-del {
+  padding: 9px 18px; font-size: 13px; font-weight: 600;
+  font-family: 'Sora', sans-serif;
+  background: #fff1f2; border: 1.5px solid #fecdd3;
+  color: #e11d48; border-radius: 12px; cursor: pointer;
+  transition: all 0.2s;
+}
+.btn-del:hover:not(:disabled) { background: #ffe4e6; }
+.btn-del:disabled { opacity: 0.5; cursor: not-allowed; }
+
+/* ── Criteria grid ── */
+.crit-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 12px;
+  margin-bottom: 16px;
+}
+@media (min-width: 480px) { .crit-grid { gap: 16px; } }
+
+.crit-tile {
+  background: linear-gradient(135deg, var(--t50), rgba(224,242,254,0.5));
+  border: 1.5px solid var(--t100);
+  border-radius: 14px; padding: 12px 14px;
+}
+.crit-label {
+  font-size: 9.5px; font-weight: 700; letter-spacing: 1px;
+  text-transform: uppercase; color: var(--t600); margin-bottom: 5px;
+}
+.crit-value { font-size: 15px; font-weight: 700; color: var(--t700); }
+.crit-sub   { font-size: 11px; color: var(--muted); margin-top: 3px; line-height: 1.4; }
+
+.skills-section { margin-top: 4px; }
+.skills-label {
+  font-size: 10px; font-weight: 700; letter-spacing: 0.8px;
+  text-transform: uppercase; color: var(--muted); margin-bottom: 7px;
+}
+.chips { display: flex; flex-wrap: wrap; gap: 5px; }
+.chip {
+  font-size: 11px; font-weight: 500;
+  padding: 3px 10px; border-radius: 100px; border: 1.5px solid;
+}
+
+/* ── Applicants ── */
+.applicants-hdr {
+  display: flex; align-items: center; justify-content: space-between;
+  flex-wrap: wrap; gap: 8px; margin-bottom: 16px;
+}
+.matched-badge {
+  font-size: 11px; font-weight: 600;
+  background: linear-gradient(135deg, var(--t50), #ecfdf5);
+  border: 1.5px solid var(--t200);
+  color: var(--t700);
+  padding: 4px 12px; border-radius: 100px;
+}
+
+.applicant-item {
+  border: 1.5px solid var(--t100);
+  border-radius: 16px;
+  overflow: hidden;
+  margin-bottom: 10px;
+  background: rgba(255,255,255,0.8);
+  transition: border-color 0.2s, box-shadow 0.2s;
+}
+.applicant-item:hover { border-color: var(--t300); box-shadow: 0 2px 12px rgba(20,184,166,0.08); }
+
+.applicant-row {
+  display: flex; align-items: center; gap: 10px; padding: 12px 14px;
+}
+@media (min-width: 480px) { .applicant-row { gap: 14px; padding: 14px 18px; } }
+
+.ap-avatar {
+  width: 40px; height: 40px; border-radius: 50%; flex-shrink: 0;
+  background: linear-gradient(135deg, var(--t300), var(--c400));
+  display: flex; align-items: center; justify-content: center;
+  font-size: 13px; font-weight: 700; color: white;
+}
+.ap-main { flex: 1; min-width: 0; }
+.ap-name { font-size: 13.5px; font-weight: 700; color: var(--text); }
+.ap-meta { font-size: 11px; color: var(--muted); margin-top: 2px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.ap-skills { display: flex; flex-wrap: wrap; gap: 4px; margin-top: 6px; }
+.ap-skill-chip {
+  font-size: 10.5px; font-weight: 500; color: var(--t700);
+  background: var(--t50); border: 1px solid var(--t100);
+  padding: 2px 8px; border-radius: 100px;
+}
+.ap-more { font-size: 10.5px; color: var(--light); align-self: center; }
+
+.ap-score-col { text-align: center; flex-shrink: 0; }
+.ap-score-num { font-size: 24px; font-weight: 800; line-height: 1; }
+.ap-score-label { font-size: 9.5px; color: var(--light); }
+
+.ap-actions { display: flex; flex-direction: column; gap: 5px; flex-shrink: 0; }
+.ap-btn {
+  font-size: 11px; font-weight: 600; font-family: 'Sora', sans-serif;
+  padding: 5px 10px; border-radius: 9px; cursor: pointer;
+  transition: all 0.15s; white-space: nowrap; text-align: center;
+}
+.ap-btn-outline {
+  background: white; border: 1.5px solid var(--t200); color: var(--t700);
+}
+.ap-btn-outline:hover { background: var(--t50); }
+.ap-btn-cv {
+  background: linear-gradient(135deg, var(--t500), var(--c500));
+  border: none; color: white; text-decoration: none; display: inline-block;
+}
+.ap-btn-cv:hover { opacity: 0.88; }
+.ap-btn-remove {
+  background: #fff1f2; border: 1.5px solid #fecdd3; color: #e11d48;
+}
+.ap-btn-remove:hover:not(:disabled) { background: #ffe4e6; }
+.ap-btn-remove:disabled { opacity: 0.5; cursor: not-allowed; }
+
+/* Expanded scores */
+.ap-expanded {
+  border-top: 1.5px solid var(--t100);
+  background: linear-gradient(135deg, var(--t50), rgba(224,242,254,0.3));
+  padding: 14px 18px;
+}
+.ap-expanded-title {
+  font-size: 10px; font-weight: 700; letter-spacing: 0.8px;
+  text-transform: uppercase; color: var(--t600); margin-bottom: 10px;
+}
+.score-bar-row { margin-bottom: 8px; }
+.score-bar-labels {
+  display: flex; justify-content: space-between;
+  font-size: 11px; color: var(--muted); margin-bottom: 3px;
+}
+.score-bar-val { font-weight: 600; color: var(--text); }
+.score-bar-track { height: 5px; background: #e2e8f0; border-radius: 4px; overflow: hidden; }
+.score-bar-fill { height: 100%; border-radius: 4px; transition: width 0.6s ease; }
+.sbf-teal  { background: linear-gradient(90deg, var(--t400), var(--t500)); }
+.sbf-amber { background: linear-gradient(90deg, #fbbf24, #f59e0b); }
+.sbf-red   { background: linear-gradient(90deg, #fb7185, #e11d48); }
+
+.ap-total-row {
+  display: flex; justify-content: space-between; align-items: center;
+  padding-top: 10px; border-top: 1.5px solid var(--t100); margin-top: 4px;
+}
+.ap-total-label { font-size: 11.5px; color: var(--muted); }
+.ap-total-val   { font-size: 16px; font-weight: 800; }
+
+.ap-date { font-size: 10.5px; color: var(--light); margin-top: 8px; }
+
+/* Empty state */
+.empty-state {
+  text-align: center; padding: 40px 20px;
+  color: var(--light); font-size: 13px;
+}
+.empty-icon { font-size: 36px; display: block; margin-bottom: 8px; }
+
+/* Loading / error */
+.full-center {
+  min-height: 100vh; display: flex; align-items: center; justify-content: center;
+  font-family: 'Sora', sans-serif; font-size: 13px; color: var(--muted);
+}
+
+/* Pondération */
+.ponder-grid {
+  display: grid; grid-template-columns: repeat(2, 1fr); gap: 6px;
+}
+.ponder-row {
+  display: flex; justify-content: space-between; align-items: center;
+  background: white; border: 1.5px solid var(--t100);
+  border-radius: 10px; padding: 6px 10px;
+  font-size: 11.5px;
+}
+.ponder-key { color: var(--muted); }
+.ponder-val { font-weight: 700; color: var(--t700); }
+`;
+
 // ── Helpers ──────────────────────────────────────────────────
 
 const initials = (name?: string) => {
@@ -63,46 +399,33 @@ const initials = (name?: string) => {
   return name.split(' ').map(s => s[0]).slice(0, 2).join('').toUpperCase();
 };
 
-const LEVEL_COLOR: Record<string, string> = {
-  'Junior': 'bg-green-50 text-green-700 border-green-200',
-  'Intermédiaire': 'bg-yellow-50 text-yellow-700 border-yellow-200',
-  'Senior/Expert': 'bg-purple-50 text-purple-700 border-purple-200',
+const levelBadge = (level?: string) => {
+  if (!level) return 'badge-slate';
+  if (level === 'Junior') return 'badge-green';
+  if (level === 'Intermédiaire') return 'badge-yellow';
+  return 'badge-purple';
 };
 
-const STATUS_COLOR: Record<string, string> = {
-  success: 'text-green-600',
-  pending: 'text-yellow-600',
-  failed: 'text-red-500',
+const statusColor = (s?: string) => {
+  if (s === 'success') return '#059669';
+  if (s === 'pending') return '#d97706';
+  return '#e11d48';
 };
 
 function ScoreBar({ label, value }: { label: string; value?: number }) {
   const v = value ?? 0;
-  const color = v >= 70 ? 'bg-green-500' : v >= 40 ? 'bg-yellow-400' : 'bg-red-400';
+  const cls = v >= 70 ? 'sbf-teal' : v >= 40 ? 'sbf-amber' : 'sbf-red';
+  const col = v >= 70 ? '#0d9488' : v >= 40 ? '#d97706' : '#e11d48';
   return (
-    <div className="space-y-0.5">
-      <div className="flex justify-between text-xs text-slate-500">
+    <div className="score-bar-row">
+      <div className="score-bar-labels">
         <span>{label}</span>
-        <span className="font-medium text-slate-700">{v}</span>
+        <span className="score-bar-val" style={{ color: col }}>{v}</span>
       </div>
-      <div className="h-1.5 bg-slate-100 rounded-full overflow-hidden">
-        <div className={`h-full rounded-full ${color}`} style={{ width: `${v}%` }} />
+      <div className="score-bar-track">
+        <div className={`score-bar-fill ${cls}`} style={{ width: `${v}%` }} />
       </div>
     </div>
-  );
-}
-
-function Tag({ children, color = 'slate' }: { children: React.ReactNode; color?: string }) {
-  const colors: Record<string, string> = {
-    slate: 'bg-slate-100 text-slate-600',
-    red: 'bg-red-50 text-red-700 border border-red-200',
-    blue: 'bg-blue-50 text-blue-700 border border-blue-200',
-    purple: 'bg-purple-50 text-purple-700 border border-purple-200',
-    green: 'bg-green-50 text-green-700 border border-green-200',
-  };
-  return (
-    <span className={`text-xs px-2 py-0.5 rounded-full ${colors[color] ?? colors.slate}`}>
-      {children}
-    </span>
   );
 }
 
@@ -122,7 +445,6 @@ export default function PostDetailPage() {
   const [expandedApplicant, setExpandedApplicant] = useState<string | null>(null);
 
   const base = process.env.NEXT_PUBLIC_NEST_API_URL || '';
-
   const getToken = () =>
     typeof window !== 'undefined'
       ? localStorage.getItem('access_token') || localStorage.getItem('token')
@@ -131,38 +453,28 @@ export default function PostDetailPage() {
   useEffect(() => {
     if (!id) return;
     const fetchAll = async () => {
-      setLoading(true);
-      setError(null);
+      setLoading(true); setError(null);
       try {
         const token = getToken();
         const res = await fetch(`${base}/posts/${id}`, {
           headers: token ? { Authorization: `Bearer ${token}` } : undefined,
         });
-        if (!res.ok) throw new Error(`Erreur API ${res.status}: ${await res.text()}`);
+        if (!res.ok) throw new Error(`Erreur API ${res.status}`);
         const data: Post = await res.json();
         setPost(data);
-
-        // Fetch créateur
         if (data.createdById) {
           try {
             const uRes = await fetch(`${base}/users/${encodeURIComponent(data.createdById)}`, {
               headers: token ? { Authorization: `Bearer ${token}` } : undefined,
             });
-            if (uRes.ok) {
-              const u = await uRes.json();
-              setCreator({ id: u._id ?? u.id, name: u.name ?? u.fullName ?? u.email, email: u.email, role: u.role });
-            } else {
-              setCreator({ id: data.createdById });
-            }
-          } catch {
-            setCreator({ id: data.createdById });
-          }
+            const u = uRes.ok ? await uRes.json() : null;
+            setCreator(u
+              ? { id: u._id ?? u.id, name: u.name ?? u.fullName ?? u.email, email: u.email, role: u.role }
+              : { id: data.createdById });
+          } catch { setCreator({ id: data.createdById }); }
         }
-      } catch (err: any) {
-        setError(err.message || 'Erreur inconnue');
-      } finally {
-        setLoading(false);
-      }
+      } catch (err: any) { setError(err.message || 'Erreur inconnue'); }
+      finally { setLoading(false); }
     };
     fetchAll();
   }, [id, base]);
@@ -174,16 +486,12 @@ export default function PostDetailPage() {
     setDeleting(true);
     try {
       const res = await fetch(`${base}/posts/${id}`, {
-        method: 'DELETE',
-        headers: { Authorization: `Bearer ${token}` },
+        method: 'DELETE', headers: { Authorization: `Bearer ${token}` },
       });
-      if (!res.ok) throw new Error(`Erreur suppression ${res.status}: ${await res.text()}`);
+      if (!res.ok) throw new Error(`Erreur ${res.status}`);
       router.push('/Dashboard/RH/postslist');
-    } catch (err: any) {
-      alert(err.message || 'Erreur lors de la suppression');
-    } finally {
-      setDeleting(false);
-    }
+    } catch (err: any) { alert(err.message); }
+    finally { setDeleting(false); }
   };
 
   const handleDeleteApplicant = async (email: string) => {
@@ -193,323 +501,261 @@ export default function PostDetailPage() {
     setDeletingEmail(email);
     try {
       const res = await fetch(`${base}/posts/${id}/applicants/${encodeURIComponent(email)}`, {
-        method: 'DELETE',
-        headers: { Authorization: `Bearer ${token}` },
+        method: 'DELETE', headers: { Authorization: `Bearer ${token}` },
       });
-      if (!res.ok) throw new Error(`Erreur ${res.status}: ${await res.text()}`);
+      if (!res.ok) throw new Error(`Erreur ${res.status}`);
       const updated = await fetch(`${base}/posts/${id}`, {
         headers: token ? { Authorization: `Bearer ${token}` } : undefined,
       }).then(r => r.json());
       setPost(updated);
-    } catch (err: any) {
-      alert(err.message || 'Erreur lors de la suppression du candidat');
-    } finally {
-      setDeletingEmail(null);
-    }
+    } catch (err: any) { alert(err.message); }
+    finally { setDeletingEmail(null); }
   };
 
-  if (loading) return (
-    <div className="min-h-screen bg-slate-50 flex items-center justify-center text-slate-400 text-sm">
-      Chargement...
-    </div>
-  );
+  if (loading) return <div className="full-center" style={{ fontFamily: 'Sora, sans-serif' }}>Chargement…</div>;
   if (error) return (
-    <div className="min-h-screen bg-slate-50 flex items-center justify-center">
-      <div className="p-6 bg-red-50 border border-red-200 rounded-xl text-red-600 text-sm">⚠️ {error}</div>
+    <div className="full-center" style={{ fontFamily: 'Sora, sans-serif' }}>
+      <div style={{ background: '#fff1f2', border: '1.5px solid #fecdd3', color: '#e11d48', borderRadius: 14, padding: '16px 24px', fontSize: 13 }}>⚠️ {error}</div>
     </div>
   );
-  if (!post) return (
-    <div className="min-h-screen bg-slate-50 flex items-center justify-center text-slate-400 text-sm">
-      Offre introuvable.
-    </div>
-  );
+  if (!post) return <div className="full-center" style={{ fontFamily: 'Sora, sans-serif' }}>Offre introuvable.</div>;
 
   const applicants = post.applicants ?? [];
-  const sortedApplicants = [...applicants].sort((a, b) => (b.score ?? 0) - (a.score ?? 0));
+  const sorted = [...applicants].sort((a, b) => (b.score ?? 0) - (a.score ?? 0));
 
   return (
-    <div className="min-h-screen bg-slate-50 py-8 px-4">
-      <div className="max-w-3xl mx-auto space-y-5">
+    <div className="pd-root">
+      <style dangerouslySetInnerHTML={{ __html: css }} />
+      <div className="pd-inner">
 
-        {/* ── Header ── */}
-        <div>
-          <button onClick={() => router.back()} className="text-sm text-slate-500 hover:text-slate-800 mb-4 flex items-center gap-1">
-            ← Retour
-          </button>
+        {/* Back */}
+        <button className="pd-back" onClick={() => router.back()}>← Retour</button>
 
-          <div className="bg-white border border-slate-200 rounded-xl p-5 shadow-sm">
-            <div className="flex items-start justify-between gap-4">
-              <div className="flex-1">
-                <div className="flex flex-wrap items-center gap-2 mb-1">
-                  <h1 className="text-xl font-bold text-slate-800">{post.title}</h1>
+        {/* ── Header card ── */}
+        <div className="card">
+          <div className="card-pad">
+            <div className="hdr-row">
+              <div className="hdr-left">
+                <h1 className="post-title">{post.title}</h1>
+                <div className="badge-row">
                   {post.requiredLevel && (
-                    <span className={`text-xs px-2 py-0.5 rounded-full border font-medium ${LEVEL_COLOR[post.requiredLevel] ?? 'bg-slate-100 text-slate-600'}`}>
-                      {post.requiredLevel}
-                    </span>
+                    <span className={`badge ${levelBadge(post.requiredLevel)}`}>{post.requiredLevel}</span>
                   )}
-                  {post.isActive
-                    ? <span className="text-xs text-green-600 font-medium">● Actif</span>
-                    : <span className="text-xs text-red-500 font-medium">● Inactif</span>}
+                  <span className={`badge ${post.isActive ? 'badge-active' : 'badge-inactive'}`}>
+                    {post.isActive ? '● Actif' : '● Inactif'}
+                  </span>
                 </div>
-
-                <div className="text-xs text-slate-400 mb-3">
+                <p className="meta-text">
                   Créé le {post.createdAt ? new Date(post.createdAt).toLocaleDateString('fr-FR') : '—'}
-                  {post.updatedAt && ` • Modifié le ${new Date(post.updatedAt).toLocaleDateString('fr-FR')}`}
-                </div>
-
-                {/* Créateur */}
+                  {post.updatedAt && ` · Modifié le ${new Date(post.updatedAt).toLocaleDateString('fr-FR')}`}
+                </p>
                 {creator && (
-                  <div className="flex items-center gap-2">
-                    <div className="w-8 h-8 rounded-full bg-indigo-100 flex items-center justify-center text-indigo-700 text-xs font-bold">
-                      {initials(creator.name ?? creator.email)}
-                    </div>
-                    <div className="text-xs text-slate-600">
-                      <span className="font-medium">{creator.name ?? `User ${creator.id}`}</span>
-                      {creator.role && <span className="text-slate-400"> · {creator.role}</span>}
+                  <div className="creator">
+                    <div className="creator-avatar">{initials(creator.name ?? creator.email)}</div>
+                    <div>
+                      <div className="creator-name">{creator.name ?? `User ${creator.id}`}</div>
+                      {creator.role && <div className="creator-role">{creator.role}</div>}
                     </div>
                   </div>
                 )}
               </div>
 
-              {/* Score moyen */}
-              <div className="text-center shrink-0">
-                <div className="text-3xl font-bold text-indigo-600">{post.score ?? 0}</div>
-                <div className="text-xs text-slate-400">score moyen</div>
-                <div className="text-xs text-slate-500 mt-1">{post.applicantsCount ?? applicants.length} candidat(s)</div>
+              {/* Score */}
+              <div className="score-hero-sm">
+                <div className="score-hero-sm-num">{post.score ?? 0}</div>
+                <div className="score-hero-sm-label">score moyen</div>
+                <div className="score-hero-sm-count">{post.applicantsCount ?? applicants.length} candidat(s)</div>
                 {(post.matchedApplicantsCount ?? 0) > 0 && (
-                  <div className="text-xs text-green-600 font-medium">{post.matchedApplicantsCount} ≥ 70%</div>
+                  <div style={{ fontSize: 11, color: '#059669', fontWeight: 600, marginTop: 3 }}>
+                    {post.matchedApplicantsCount} ≥ 70%
+                  </div>
                 )}
               </div>
             </div>
 
-            {/* Actions */}
-            <div className="flex gap-2 mt-4 pt-4 border-t border-slate-100">
-              <button
-                onClick={() => router.push(`/Dashboard/RH/postslist/${id}/editpost`)}
-                className="px-4 py-2 text-sm border border-slate-300 rounded-lg hover:bg-slate-50 transition"
-              >
-                Modifier
+            <div className="action-row">
+              <button className="btn-edit" onClick={() => router.push(`/Dashboard/RH/postslist/${id}/editpost`)}>
+                ✏️ Modifier
               </button>
-              <button
-                onClick={handleDeletePost}
-                disabled={deleting}
-                className="px-4 py-2 text-sm bg-red-600 text-white rounded-lg hover:bg-red-700 disabled:opacity-50 transition"
-              >
-                {deleting ? 'Suppression...' : 'Supprimer'}
+              <button className="btn-del" onClick={handleDeletePost} disabled={deleting}>
+                {deleting ? 'Suppression…' : '🗑 Supprimer'}
               </button>
             </div>
           </div>
         </div>
 
         {/* ── Description ── */}
-        <div className="bg-white border border-slate-200 rounded-xl p-5 shadow-sm">
-          <h2 className="text-sm font-semibold text-slate-700 mb-2">📋 Description</h2>
-          <p className="text-sm text-slate-600 whitespace-pre-wrap">{post.description}</p>
-          {post.tags && post.tags.length > 0 && (
-            <div className="flex flex-wrap gap-1 mt-3">
-              {post.tags.map((t, i) => <Tag key={i} color="green">{t}</Tag>)}
-            </div>
-          )}
+        <div className="card">
+          <div className="card-pad">
+            <p className="sec-title">📋 Description</p>
+            <p style={{ fontSize: 13.5, color: '#334155', whiteSpace: 'pre-wrap', lineHeight: 1.7, margin: 0 }}>
+              {post.description}
+            </p>
+            {(post.tags?.length ?? 0) > 0 && (
+              <div className="chips" style={{ marginTop: 12 }}>
+                {post.tags!.map((t, i) => <span key={i} className="chip badge-green">{t}</span>)}
+              </div>
+            )}
+          </div>
         </div>
 
         {/* ── Critères ── */}
-        <div className="bg-white border border-slate-200 rounded-xl p-5 shadow-sm space-y-4">
-          <h2 className="text-sm font-semibold text-slate-700">🎯 Critères de matching</h2>
+        <div className="card">
+          <div className="card-pad">
+            <p className="sec-title">🎯 Critères de matching</p>
 
-          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 text-sm">
-
-            {/* Niveau */}
-            <div className="space-y-1">
-              <div className="text-xs font-medium text-slate-500 uppercase tracking-wide">Niveau</div>
-              <div className="flex items-center gap-2">
-                {post.requiredLevel && (
-                  <span className={`text-xs px-2 py-0.5 rounded-full border ${LEVEL_COLOR[post.requiredLevel] ?? ''}`}>
-                    {post.requiredLevel}
-                  </span>
-                )}
+            <div className="crit-grid">
+              <div className="crit-tile">
+                <div className="crit-label">Niveau</div>
+                <div className="crit-value">{post.requiredLevel || '—'}</div>
+                {post.levelDescription && <div className="crit-sub">{post.levelDescription}</div>}
               </div>
-              {post.levelDescription && <p className="text-xs text-slate-500">{post.levelDescription}</p>}
-            </div>
-
-            {/* Expérience */}
-            <div className="space-y-1">
-              <div className="text-xs font-medium text-slate-500 uppercase tracking-wide">Expérience</div>
-              <div className="text-slate-700">
-                {post.minYearsExperience ?? 0}
-                {post.maxYearsExperience ? `–${post.maxYearsExperience}` : '+'} ans
+              <div className="crit-tile">
+                <div className="crit-label">Expérience</div>
+                <div className="crit-value">
+                  {post.minYearsExperience ?? 0}{post.maxYearsExperience ? `–${post.maxYearsExperience}` : '+'} ans
+                </div>
+                {post.experienceDescription && <div className="crit-sub">{post.experienceDescription}</div>}
               </div>
-              {post.experienceDescription && <p className="text-xs text-slate-500">{post.experienceDescription}</p>}
-            </div>
-
-            {/* Formation */}
-            <div className="space-y-1">
-              <div className="text-xs font-medium text-slate-500 uppercase tracking-wide">Formation</div>
-              <div className="text-slate-700">{post.minYearsEducation ?? 0}+ ans</div>
-              {post.educationDescription && <p className="text-xs text-slate-500">{post.educationDescription}</p>}
-            </div>
-
-            {/* Pondération */}
-            <div className="space-y-1">
-              <div className="text-xs font-medium text-slate-500 uppercase tracking-wide">Pondération du score</div>
-              <div className="text-xs text-slate-500 space-y-0.5">
-                <div>Skills: <span className="font-medium text-slate-700">40%</span></div>
-                <div>Expérience: <span className="font-medium text-slate-700">25%</span></div>
-                <div>Niveau: <span className="font-medium text-slate-700">20%</span></div>
-                <div>Formation: <span className="font-medium text-slate-700">15%</span></div>
+              <div className="crit-tile">
+                <div className="crit-label">Formation</div>
+                <div className="crit-value">{post.minYearsEducation ?? 0}+ ans</div>
+                {post.educationDescription && <div className="crit-sub">{post.educationDescription}</div>}
+              </div>
+              <div className="crit-tile">
+                <div className="crit-label">Pondération</div>
+                <div style={{ marginTop: 4 }}>
+                  {[['Skills','40%'],['Exp.','25%'],['Niveau','20%'],['Form.','15%']].map(([k,v]) => (
+                    <div key={k} style={{ display:'flex', justifyContent:'space-between', fontSize:11, color:'#475569', marginBottom:2 }}>
+                      <span>{k}</span><span style={{ fontWeight:700, color:'#0f766e' }}>{v}</span>
+                    </div>
+                  ))}
+                </div>
               </div>
             </div>
+
+            {(post.requiredSkills?.length ?? 0) > 0 && (
+              <div className="skills-section">
+                <div className="skills-label">Compétences obligatoires</div>
+                <div className="chips">
+                  {post.requiredSkills!.map((s, i) => <span key={i} className="chip badge-red">{s}</span>)}
+                </div>
+              </div>
+            )}
+            {(post.preferredSkills?.length ?? 0) > 0 && (
+              <div className="skills-section" style={{ marginTop: 12 }}>
+                <div className="skills-label">Compétences appréciées</div>
+                <div className="chips">
+                  {post.preferredSkills!.map((s, i) => <span key={i} className="chip badge-blue">{s}</span>)}
+                </div>
+                {post.skillsDescription && <p style={{ fontSize: 11.5, color: '#64748b', marginTop: 6 }}>{post.skillsDescription}</p>}
+              </div>
+            )}
+            {(post.keywords?.length ?? 0) > 0 && (
+              <div className="skills-section" style={{ marginTop: 12 }}>
+                <div className="skills-label">Mots-clés</div>
+                <div className="chips">
+                  {post.keywords!.map((k, i) => <span key={i} className="chip badge-purple">{k}</span>)}
+                </div>
+              </div>
+            )}
           </div>
-
-          {/* Skills */}
-          {(post.requiredSkills?.length ?? 0) > 0 && (
-            <div className="space-y-1">
-              <div className="text-xs font-medium text-slate-500 uppercase tracking-wide">Compétences obligatoires</div>
-              <div className="flex flex-wrap gap-1">
-                {post.requiredSkills!.map((s, i) => <Tag key={i} color="red">{s}</Tag>)}
-              </div>
-            </div>
-          )}
-          {(post.preferredSkills?.length ?? 0) > 0 && (
-            <div className="space-y-1">
-              <div className="text-xs font-medium text-slate-500 uppercase tracking-wide">Compétences appréciées</div>
-              <div className="flex flex-wrap gap-1">
-                {post.preferredSkills!.map((s, i) => <Tag key={i} color="blue">{s}</Tag>)}
-              </div>
-              {post.skillsDescription && <p className="text-xs text-slate-500">{post.skillsDescription}</p>}
-            </div>
-          )}
-          {(post.keywords?.length ?? 0) > 0 && (
-            <div className="space-y-1">
-              <div className="text-xs font-medium text-slate-500 uppercase tracking-wide">Mots-clés</div>
-              <div className="flex flex-wrap gap-1">
-                {post.keywords!.map((k, i) => <Tag key={i} color="purple">{k}</Tag>)}
-              </div>
-            </div>
-          )}
         </div>
 
         {/* ── Candidats ── */}
-        <div className="bg-white border border-slate-200 rounded-xl p-5 shadow-sm">
-          <div className="flex items-center justify-between mb-4">
-            <h2 className="text-sm font-semibold text-slate-700">
-              👥 Candidats ({applicants.length})
-            </h2>
-            {(post.matchedApplicantsCount ?? 0) > 0 && (
-              <span className="text-xs text-green-600 font-medium bg-green-50 border border-green-200 px-2 py-0.5 rounded-full">
-                {post.matchedApplicantsCount} candidat(s) ≥ 70
-              </span>
-            )}
-          </div>
+        <div className="card">
+          <div className="card-pad">
+            <div className="applicants-hdr">
+              <p className="sec-title" style={{ margin: 0 }}>👥 Candidats ({applicants.length})</p>
+              {(post.matchedApplicantsCount ?? 0) > 0 && (
+                <span className="matched-badge">✓ {post.matchedApplicantsCount} candidat(s) ≥ 70</span>
+              )}
+            </div>
 
-          {applicants.length === 0 && (
-            <div className="text-sm text-slate-400 text-center py-6">Aucun candidat pour le moment.</div>
-          )}
+            {applicants.length === 0 ? (
+              <div className="empty-state">
+                <span className="empty-icon">🕊</span>
+                Aucun candidat pour le moment.
+              </div>
+            ) : (
+              sorted.map(a => {
+                const isExp = expandedApplicant === a.email;
+                const score = a.score ?? 0;
+                const scoreCol = score >= 70 ? '#0d9488' : score >= 40 ? '#d97706' : '#e11d48';
 
-          <ul className="space-y-3">
-            {sortedApplicants.map(a => {
-              const isExpanded = expandedApplicant === a.email;
-              const score = a.score ?? 0;
-              const scoreColor = score >= 70 ? 'text-green-600' : score >= 40 ? 'text-yellow-600' : 'text-red-500';
+                return (
+                  <div key={a.email} className="applicant-item">
+                    <div className="applicant-row">
+                      <div className="ap-avatar">{initials(a.name)}</div>
 
-              return (
-                <li key={a.email} className="border border-slate-200 rounded-lg overflow-hidden">
-                  {/* Row principal */}
-                  <div className="flex items-center gap-3 p-3">
-                    <div className="w-9 h-9 rounded-full bg-slate-100 flex items-center justify-center text-slate-600 text-xs font-bold shrink-0">
-                      {initials(a.name)}
-                    </div>
-
-                    <div className="flex-1 min-w-0">
-                      <div className="flex items-center gap-2 flex-wrap">
-                        <span className="text-sm font-medium text-slate-800">{a.name}</span>
-                        {a.level && (
-                          <span className={`text-xs px-1.5 py-0.5 rounded-full border ${LEVEL_COLOR[a.level] ?? 'bg-slate-100 text-slate-600'}`}>
-                            {a.level}
-                          </span>
-                        )}
-                        {a.cvParsingStatus && (
-                          <span className={`text-xs ${STATUS_COLOR[a.cvParsingStatus] ?? 'text-slate-400'}`}>
-                            ● {a.cvParsingStatus}
-                          </span>
-                        )}
-                      </div>
-                      <div className="text-xs text-slate-500 mt-0.5">
-                        {a.email}
-                        {a.phone && ` · ${a.phone}`}
-                        {a.years_experience !== undefined && ` · ${a.years_experience} ans exp.`}
-                      </div>
-                      {/* Skills */}
-                      {(a.skills?.length ?? 0) > 0 && (
-                        <div className="flex flex-wrap gap-1 mt-1">
-                          {a.skills!.slice(0, 4).map((s, i) => (
-                            <span key={i} className="text-xs bg-slate-100 text-slate-600 px-1.5 py-0.5 rounded">
-                              {s}
+                      <div className="ap-main">
+                        <div style={{ display: 'flex', flexWrap: 'wrap', alignItems: 'center', gap: 6 }}>
+                          <span className="ap-name">{a.name}</span>
+                          {a.level && <span className={`badge ${levelBadge(a.level)}`} style={{ fontSize: 10 }}>{a.level}</span>}
+                          {a.cvParsingStatus && (
+                            <span style={{ fontSize: 10.5, fontWeight: 600, color: statusColor(a.cvParsingStatus) }}>
+                              ● {a.cvParsingStatus}
                             </span>
-                          ))}
-                          {a.skills!.length > 4 && (
-                            <span className="text-xs text-slate-400">+{a.skills!.length - 4}</span>
                           )}
                         </div>
-                      )}
-                    </div>
-
-                    {/* Score total */}
-                    <div className="text-right shrink-0">
-                      <div className={`text-xl font-bold ${scoreColor}`}>{score}</div>
-                      <div className="text-xs text-slate-400">/ 100</div>
-                    </div>
-
-                    {/* Actions */}
-                    <div className="flex flex-col gap-1 shrink-0">
-                      <button
-                        onClick={() => setExpandedApplicant(isExpanded ? null : a.email)}
-                        className="text-xs px-2 py-1 border border-slate-300 rounded hover:bg-slate-50 transition"
-                      >
-                        {isExpanded ? 'Réduire' : 'Détails'}
-                      </button>
-                      {a.cvLink && (
-                        <a
-                          href={a.cvLink}
-                          target="_blank"
-                          rel="noreferrer"
-                          className="text-xs px-2 py-1 border border-indigo-300 text-indigo-600 rounded hover:bg-indigo-50 text-center transition"
-                        >
-                          CV
-                        </a>
-                      )}
-                      <button
-                        onClick={() => handleDeleteApplicant(a.email)}
-                        disabled={deletingEmail === a.email}
-                        className="text-xs px-2 py-1 bg-red-600 text-white rounded disabled:opacity-50 hover:bg-red-700 transition"
-                      >
-                        {deletingEmail === a.email ? '...' : 'Retirer'}
-                      </button>
-                    </div>
-                  </div>
-
-                  {/* Détails scores expandables */}
-                  {isExpanded && (
-                    <div className="border-t border-slate-100 px-4 py-3 bg-slate-50 space-y-2">
-                      <div className="text-xs font-medium text-slate-500 mb-2">Détail des scores</div>
-                      <ScoreBar label="Compétences (40%)" value={a.skillsScore} />
-                      <ScoreBar label="Expérience (25%)" value={a.experienceScore} />
-                      <ScoreBar label="Niveau (20%)" value={a.levelScore} />
-                      <ScoreBar label="Formation (15%)" value={a.educationScore} />
-                      <div className="pt-2 border-t border-slate-200 flex justify-between text-xs">
-                        <span className="text-slate-500">Score total pondéré</span>
-                        <span className={`font-bold text-sm ${scoreColor}`}>{score} / 100</span>
-                      </div>
-                      {a.appliedAt && (
-                        <div className="text-xs text-slate-400">
-                          Postulé le {new Date(a.appliedAt).toLocaleDateString('fr-FR')}
+                        <div className="ap-meta">
+                          {a.email}
+                          {a.phone && ` · ${a.phone}`}
+                          {a.years_experience !== undefined && ` · ${a.years_experience} ans`}
                         </div>
-                      )}
+                        {(a.skills?.length ?? 0) > 0 && (
+                          <div className="ap-skills">
+                            {a.skills!.slice(0, 4).map((s, i) => <span key={i} className="ap-skill-chip">{s}</span>)}
+                            {a.skills!.length > 4 && <span className="ap-more">+{a.skills!.length - 4}</span>}
+                          </div>
+                        )}
+                      </div>
+
+                      <div className="ap-score-col">
+                        <div className="ap-score-num" style={{ color: scoreCol }}>{score}</div>
+                        <div className="ap-score-label">/ 100</div>
+                      </div>
+
+                      <div className="ap-actions">
+                        <button className="ap-btn ap-btn-outline" onClick={() => setExpandedApplicant(isExp ? null : a.email)}>
+                          {isExp ? '▲' : '▼'}
+                        </button>
+                        {a.cvLink && (
+                          <a className="ap-btn ap-btn-cv" href={a.cvLink} target="_blank" rel="noreferrer">CV</a>
+                        )}
+                        <button
+                          className="ap-btn ap-btn-remove"
+                          onClick={() => handleDeleteApplicant(a.email)}
+                          disabled={deletingEmail === a.email}
+                        >
+                          {deletingEmail === a.email ? '…' : '✕'}
+                        </button>
+                      </div>
                     </div>
-                  )}
-                </li>
-              );
-            })}
-          </ul>
+
+                    {isExp && (
+                      <div className="ap-expanded">
+                        <div className="ap-expanded-title">Détail des scores</div>
+                        <ScoreBar label="Compétences (40%)" value={a.skillsScore} />
+                        <ScoreBar label="Expérience (25%)" value={a.experienceScore} />
+                        <ScoreBar label="Niveau (20%)" value={a.levelScore} />
+                        <ScoreBar label="Formation (15%)" value={a.educationScore} />
+                        <div className="ap-total-row">
+                          <span className="ap-total-label">Score total pondéré</span>
+                          <span className="ap-total-val" style={{ color: scoreCol }}>{score} / 100</span>
+                        </div>
+                        {a.appliedAt && (
+                          <div className="ap-date">
+                            Postulé le {new Date(a.appliedAt).toLocaleDateString('fr-FR')}
+                          </div>
+                        )}
+                      </div>
+                    )}
+                  </div>
+                );
+              })
+            )}
+          </div>
         </div>
 
       </div>

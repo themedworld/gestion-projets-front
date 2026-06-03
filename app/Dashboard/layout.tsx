@@ -27,9 +27,9 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
   const router = useRouter();
   const [isAuthorized, setIsAuthorized] = useState(false);
   const [isMobile, setIsMobile] = useState(false);
-  const [sidebarOpen, setSidebarOpen] = useState(false);
 
   useEffect(() => {
+    // Auth check
     const token = localStorage.getItem("access_token");
     const userStr = localStorage.getItem("user");
 
@@ -50,15 +50,8 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
       router.push("/login");
     }
 
-    // Detect mobile
-    const handleResize = () => {
-      const mobile = window.innerWidth < 768;
-      setIsMobile(mobile);
-      // Fermer la sidebar si on passe en desktop
-      if (!mobile) {
-        setSidebarOpen(false);
-      }
-    };
+    // Responsive detection
+    const handleResize = () => setIsMobile(window.innerWidth < 768);
     handleResize();
     window.addEventListener("resize", handleResize);
     return () => window.removeEventListener("resize", handleResize);
@@ -68,47 +61,23 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
 
   return (
     <div className="flex h-screen w-full bg-slate-50 overflow-hidden">
-      {/* Mobile overlay */}
-      {isMobile && sidebarOpen && (
-        <div
-          className="fixed inset-0 z-40 bg-black/40 backdrop-blur-sm"
-          onClick={() => setSidebarOpen(false)}
-        />
-      )}
 
-      {/* Sidebar - hidden on mobile unless opened */}
-      {!isMobile && (
-        <Sidebar
-          isMobile={isMobile}
-          sidebarOpen={sidebarOpen}
-          onCloseSidebar={() => setSidebarOpen(false)}
-        />
-      )}
-
-      {/* Sidebar on mobile */}
-      {isMobile && (
-        <Sidebar
-          isMobile={isMobile}
-          sidebarOpen={sidebarOpen}
-          onCloseSidebar={() => setSidebarOpen(false)}
-        />
-      )}
+      {/* Sidebar — desktop only, hidden on mobile */}
+      {!isMobile && <Sidebar />}
 
       {/* Main column */}
       <div className="flex flex-col flex-1 min-w-0 h-screen overflow-hidden">
-        {/* Header */}
-        <Header
-          isMobile={isMobile}
-          onToggleSidebar={() => setSidebarOpen(!sidebarOpen)}
-          sidebarOpen={sidebarOpen}
-        />
 
-        {/* Scrollable content area */}
+        {/* Header — handles mobile nav drawer internally */}
+        <Header isMobile={isMobile} />
+
+        {/* Page content */}
         <main className="flex-1 overflow-y-auto">
           <div className="w-full px-4 py-6 md:px-8 md:py-8">
             {children}
           </div>
         </main>
+
       </div>
     </div>
   );
