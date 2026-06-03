@@ -170,7 +170,7 @@ const ResumeControlBar = ({
         {/* Bouton Télécharger — utilise handleDownload au lieu de <a href={instance.url}> */}
         <button
           onClick={handleDownload}
-          disabled={pdfNotReady}
+         
           className="flex items-center gap-1.5 rounded-md border border-gray-300 px-3 py-1 text-sm hover:bg-gray-100 transition-colors disabled:opacity-40 disabled:cursor-not-allowed"
         >
           <ArrowDownTrayIcon className="h-4 w-4" />
@@ -181,7 +181,7 @@ const ResumeControlBar = ({
         {postId && (
           <button
             onClick={handleExportAndApply}
-            disabled={isExporting || pdfNotReady}
+            
             className={`flex items-center gap-1.5 rounded-md px-3 py-1 text-sm font-medium transition-all whitespace-nowrap border disabled:opacity-40 disabled:cursor-not-allowed ${
               exportSuccess
                 ? "bg-green-500 text-white border-green-600"
