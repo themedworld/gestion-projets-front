@@ -1,5 +1,5 @@
 "use client";
-import { useEffect, useState, useRef } from "react";
+import { useEffect, useState, useRef, useCallback } from "react";
 import { useRouter } from "next/navigation";
 import { useSetDefaultScale } from "@/condidat/resume/components/Resume/hooks";
 import {
@@ -30,95 +30,110 @@ const ResumeControlBar = ({
   const router = useRouter();
   const [isExporting, setIsExporting] = useState(false);
   const [exportSuccess, setExportSuccess] = useState(false);
-  const updateTimeoutRef = useRef<NodeJS.Timeout>();
+  const [isReady, setIsReady] = useState(false);
+  const debounceRef = useRef<NodeJS.Timeout>();
 
   const { scaleOnResize, setScaleOnResize } = useSetDefaultScale({
     setScale,
     documentSize,
   });
 
+  // usePDF prend le document initial — on l'update manuellement ensuite
   const [instance, update] = usePDF({ document });
 
-  // Hook to update pdf when document changes
+  // Debounce les mises à jour pour éviter les re-renders en boucle
   useEffect(() => {
-    // Attendre que le PDF soit mis à jour
-    if (updateTimeoutRef.current) {
-      clearTimeout(updateTimeoutRef.current);
-    }
+    setIsReady(false);
+    if (debounceRef.current) clearTimeout(debounceRef.current);
 
-    updateTimeoutRef.current = setTimeout(() => {
-      update();
-    }, 100);
+    debounceRef.current = setTimeout(() => {
+      update(document);
+    }, 300);
 
     return () => {
-      if (updateTimeoutRef.current) {
-        clearTimeout(updateTimeoutRef.current);
-      }
+      if (debounceRef.current) clearTimeout(debounceRef.current);
     };
-  }, [update, document]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [document]); // NE PAS mettre `update` dans les deps — ça crée une boucle infinie
 
-  // Fonction pour exporter en blob et naviguer vers la page de candidature
-  const handleExportAndApply = async () => {
+  // Marquer comme prêt quand le blob est disponible
+  useEffect(() => {
+    if (instance.blob && !instance.loading) {
+      setIsReady(true);
+    }
+  }, [instance.blob, instance.loading]);
+
+  // ── Téléchargement direct ──────────────────────────────────────────────────
+  const handleDownload = useCallback(() => {
+    if (!instance.blob) return;
+    const url = URL.createObjectURL(instance.blob);
+    const a = window.document.createElement("a");
+    a.href = url;
+    a.download = fileName || "cv.pdf";
+    a.click();
+    // Libérer la mémoire après le clic
+    setTimeout(() => URL.revokeObjectURL(url), 10_000);
+  }, [instance.blob, fileName]);
+
+  // ── Postuler : stocker le blob et naviguer ─────────────────────────────────
+  const handleExportAndApply = useCallback(async () => {
+    if (!postId) {
+      alert("ID de poste manquant. Accédez à cette page depuis une offre d'emploi.");
+      return;
+    }
+
     try {
       setIsExporting(true);
 
-      // Forcer une mise à jour du PDF avant d'exporter
-      await new Promise((resolve) => {
-        setTimeout(() => {
-          update();
-          resolve(null);
-        }, 100);
-      });
-
-      // Attendre que le blob soit disponible
-      await new Promise((resolve) => {
-        const checkBlob = setInterval(() => {
-          if (instance.blob) {
-            clearInterval(checkBlob);
-            resolve(null);
-          }
-        }, 50);
-
-        // Timeout après 5 secondes
-        setTimeout(() => {
-          clearInterval(checkBlob);
-          resolve(null);
-        }, 5000);
-      });
-
+      // Si le blob n'est pas encore dispo, forcer update et attendre
       if (!instance.blob) {
-        throw new Error("Impossible de générer le PDF");
+        update(document);
+        await new Promise<void>((resolve, reject) => {
+          const start = Date.now();
+          const interval = setInterval(() => {
+            if (instance.blob) {
+              clearInterval(interval);
+              resolve();
+            }
+            if (Date.now() - start > 6_000) {
+              clearInterval(interval);
+              reject(new Error("Timeout — PDF non généré"));
+            }
+          }, 80);
+        });
       }
 
-      // Créer un blob URL
-      const blobUrl = URL.createObjectURL(instance.blob);
+      if (!instance.blob) throw new Error("Impossible de générer le PDF");
 
-      // Stocker dans localStorage
+      // Stocker le blob URL dans localStorage pour la page de candidature
+      const blobUrl = URL.createObjectURL(instance.blob);
       localStorage.setItem("resumeBlobUrl", blobUrl);
       localStorage.setItem("resumeFileName", fileName);
 
       setExportSuccess(true);
 
-      // Naviguer vers la page de candidature
-      if (postId) {
-        setTimeout(() => {
-          router.push(`/condidat/postuler/${postId}`);
-        }, 500);
-      } else {
-        throw new Error(
-          "Erreur : ID de poste manquant. Veuillez accéder à cette page depuis une offre d'emploi."
-        );
-      }
-    } catch (error) {
-      console.error("Erreur lors de l'export :", error);
-      alert("Erreur lors de la génération du CV");
+      setTimeout(() => {
+        router.push(`/condidat/postuler/${postId}`);
+      }, 600);
+
+    } catch (err) {
+      console.error("Erreur export :", err);
+      alert(err instanceof Error ? err.message : "Erreur lors de la génération du CV");
       setIsExporting(false);
+      setExportSuccess(false);
     }
-  };
+  }, [instance.blob, postId, fileName, document, update, router]);
+
+  // ── UI ────────────────────────────────────────────────────────────────────
+  // Le téléchargement est dispo dès qu'un blob existe (même en cas d'erreur)
+  const canDownload = !!instance.blob;
+  const pdfNotReady = !isReady || instance.loading;
 
   return (
-    <div className="sticky bottom-0 left-0 right-0 flex h-[var(--resume-control-bar-height)] items-center justify-center px-[var(--resume-padding)] text-gray-600 lg:justify-between bg-white border-t">
-      <div className="flex items-center gap-2">
+    <div className="sticky bottom-0 left-0 right-0 flex h-[var(--resume-control-bar-height)] items-center justify-between px-[var(--resume-padding)] text-gray-600 bg-white border-t gap-2">
+
+      {/* Zoom controls */}
+      <div className="flex items-center gap-2 flex-shrink-0">
         <MagnifyingGlassIcon className="h-5 w-5" aria-hidden="true" />
         <input
           type="range"
@@ -131,54 +146,70 @@ const ResumeControlBar = ({
             setScale(Number(e.target.value));
           }}
         />
-        <div className="w-10">{`${Math.round(scale * 100)}%`}</div>
-        <label className="hidden items-center gap-1 lg:flex">
+        <div className="w-10 text-sm tabular-nums">{`${Math.round(scale * 100)}%`}</div>
+        <label className="hidden items-center gap-1 lg:flex text-sm select-none">
           <input
             type="checkbox"
             className="mt-0.5 h-4 w-4"
             checked={scaleOnResize}
             onChange={() => setScaleOnResize((prev) => !prev)}
           />
-          <span className="select-none">Autoscale</span>
+          Autoscale
         </label>
       </div>
 
-      <div className="flex items-center gap-3 ml-auto">
-        {/* Bouton Télécharger */}
-        <a
-          className="flex items-center gap-1 rounded-md border border-gray-300 px-3 py-0.5 hover:bg-gray-100 transition-colors"
-          href={instance.url!}
-          download={fileName}
+      {/* Action buttons */}
+      <div className="flex items-center gap-2 flex-shrink-0">
+
+        {/* Indicateur état PDF */}
+        {instance.loading && (
+          <span className="flex items-center gap-1 text-xs text-gray-400">
+            <ArrowPathIcon className="h-3.5 w-3.5 animate-spin" />
+            Génération…
+          </span>
+        )}
+        {instance.error && (
+          <span className="flex items-center gap-1 text-xs text-amber-500" title={instance.error}>
+            ⚠ Erreur PDF{canDownload ? " — version précédente disponible" : ""}
+          </span>
+        )}
+
+        {/* Bouton Télécharger — toujours actif dès qu'un blob existe */}
+        <button
+          onClick={handleDownload}
+          disabled={!canDownload}
+          title={!canDownload ? "PDF en cours de génération…" : "Télécharger le CV"}
+          className="flex items-center gap-1.5 rounded-md border border-gray-300 px-3 py-1 text-sm hover:bg-gray-100 transition-colors disabled:opacity-40 disabled:cursor-not-allowed"
         >
           <ArrowDownTrayIcon className="h-4 w-4" />
-          <span className="whitespace-nowrap text-sm">Télécharger</span>
-        </a>
+          <span className="whitespace-nowrap">Télécharger</span>
+        </button>
 
-        {/* Bouton Postuler (export et navigate) */}
+        {/* Bouton Postuler */}
         {postId && (
           <button
             onClick={handleExportAndApply}
-            disabled={isExporting || !instance.blob}
-            className={`flex items-center gap-1 rounded-md px-3 py-0.5 font-medium transition-all whitespace-nowrap text-sm ${
+            disabled={isExporting || !canDownload}
+            className={`flex items-center gap-1.5 rounded-md px-3 py-1 text-sm font-medium transition-all whitespace-nowrap border disabled:opacity-40 disabled:cursor-not-allowed ${
               exportSuccess
-                ? "bg-green-500 text-white border border-green-600"
-                : "bg-blue-600 hover:bg-blue-700 text-white border border-blue-700 disabled:opacity-50"
+                ? "bg-green-500 text-white border-green-600"
+                : "bg-teal-600 hover:bg-teal-700 text-white border-teal-700"
             }`}
           >
             {exportSuccess ? (
               <>
                 <CheckIcon className="h-4 w-4" />
-                <span>CV préparé</span>
+                CV préparé
               </>
             ) : isExporting ? (
               <>
                 <ArrowPathIcon className="h-4 w-4 animate-spin" />
-                <span>Préparation...</span>
+                Préparation…
               </>
             ) : (
               <>
                 <CloudArrowUpIcon className="h-4 w-4" />
-                <span>Postuler</span>
+                Postuler
               </>
             )}
           </button>
@@ -188,14 +219,9 @@ const ResumeControlBar = ({
   );
 };
 
-/**
- * Load ResumeControlBar client side since it uses usePDF, which is a web specific API
- */
 export const ResumeControlBarCSR = dynamic(
   () => Promise.resolve(ResumeControlBar),
-  {
-    ssr: false,
-  }
+  { ssr: false }
 );
 
 export const ResumeControlBarBorder = () => (
