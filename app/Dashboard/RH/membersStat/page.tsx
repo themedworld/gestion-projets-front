@@ -1,449 +1,316 @@
+
 "use client";
 
 import { useEffect, useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
 import {
-  Users, Search, Award, TrendingUp, TrendingDown, ChevronUp, ChevronDown,
-  ChevronsUpDown, BarChart2, Activity, Star, Eye, Building2, Filter,
+  Users, Search, Award, TrendingUp, TrendingDown,
+  BarChart2, Activity, Star, Eye, Building2, Filter,
   Download, AlertCircle, XCircle, Loader2, Medal, Target, Minus,
-  CheckCircle2, Clock, AlertTriangle,
+  Clock, ChevronRight, Sparkles, RefreshCw,
 } from "lucide-react";
 import {
   BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer,
-  LineChart, Line, PieChart, Pie, Cell, Legend, AreaChart, Area,
+  AreaChart, Area, PieChart, Pie, Cell, Legend,
   RadarChart, Radar, PolarGrid, PolarAngleAxis,
 } from "recharts";
 
 // ─── Enums ────────────────────────────────────────────────────────────────────
 
 enum UserRole {
-  SUPER_ADMIN = "super_admin",
-  ADMIN_COMPANY = "admin_company",
-  MANAGER = "manager",
-  PROJECT_MANAGER = "project_manager",
-  CALL_CENTER_MANAGER = "call_center_manager",
-  SALES_MANAGER = "sales_manager",
-  MARKETING_MANAGER = "marketing_manager",
-  QUALITY_MANAGER = "quality_manager",
-  HR_MANAGER = "hr_manager",
-  AGENT_TELEPRO = "agent_telepro",
-  COMMERCIAL = "commercial",
-  MARKETING_AGENT = "marketing_agent",
-  QUALITE_AGENT = "qualite_agent",
-  TECH_SUPPORT = "tech_support",
-  MEMBER = "member",
+  SUPER_ADMIN = "super_admin", ADMIN_COMPANY = "admin_company",
+  MANAGER = "manager", PROJECT_MANAGER = "project_manager",
+  CALL_CENTER_MANAGER = "call_center_manager", SALES_MANAGER = "sales_manager",
+  MARKETING_MANAGER = "marketing_manager", QUALITY_MANAGER = "quality_manager",
+  HR_MANAGER = "hr_manager", AGENT_TELEPRO = "agent_telepro",
+  COMMERCIAL = "commercial", MARKETING_AGENT = "marketing_agent",
+  QUALITE_AGENT = "qualite_agent", TECH_SUPPORT = "tech_support", MEMBER = "member",
 }
 
 enum EmploymentStatus {
-  ACTIVE = "active",
-  INACTIVE = "inactive",
-  ON_LEAVE = "on_leave",
-  TERMINATED = "terminated",
+  ACTIVE = "active", INACTIVE = "inactive",
+  ON_LEAVE = "on_leave", TERMINATED = "terminated",
 }
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
 interface Company { id: number; name: string }
-
 interface User {
-  id: number;
-  fullname: string;
-  email: string;
-  role: UserRole;
-  memberlevel?: string | null;
-  company?: Company | null;
-  isActive: boolean;
+  id: number; fullname: string; email: string; role: UserRole;
+  memberlevel?: string | null; company?: Company | null; isActive: boolean;
 }
-
 interface MemberProfile {
-  id: number;
-  userId: number;
-  employmentStatus: EmploymentStatus;
-  position: string | null;
-  globalScore: number;
-  grade: string;
-  totalTasksDone: number;
-  onTimeRate: number;
-  attendanceRate: number;
-  performanceRating: number;
-  itScore: number;
-  marketingScore: number;
-  callCenterScore: number;
-  itTasksDone: number;
-  marketingTasksDone: number;
-  callCenterTasksDone: number;
-  scoreEvolution: number | null;
-  baseSalary: number | null;
-  bonuses: number;
+  id: number; userId: number; employmentStatus: EmploymentStatus;
+  position: string | null; globalScore: number; grade: string;
+  totalTasksDone: number; onTimeRate: number; attendanceRate: number;
+  performanceRating: number; itScore: number; marketingScore: number;
+  callCenterScore: number; itTasksDone: number; marketingTasksDone: number;
+  callCenterTasksDone: number; scoreEvolution: number | null;
+  baseSalary: number | null; bonuses: number;
 }
-
-interface UserWithProfile extends User {
-  profile?: MemberProfile | null;
-}
-
-// Project from /projects API
+interface UserWithProfile extends User { profile?: MemberProfile | null; }
 interface Project {
-  id: number;
-  name: string;
-  status: string;
-  domain: string;
-  startDate?: string;
-  endDate?: string;
-  isActive?: boolean;
+  id: number; name: string; status: string; domain: string;
+  startDate?: string; endDate?: string; isActive?: boolean;
   assignedTo?: { id: number; fullname: string }[];
   projectManager?: { id: number; fullname: string };
 }
 
 type SortField = "fullname" | "globalScore" | "grade" | "totalTasksDone" | "onTimeRate" | "attendanceRate" | "performanceRating";
 type SortDir = "asc" | "desc";
+type ViewMode = "cards" | "table" | "charts";
 
 // ─── Config ───────────────────────────────────────────────────────────────────
 
-const GRADE_CONFIG: Record<string, { color: string; bg: string; border: string; bar: string; rank: number; chartColor: string }> = {
-  "A+": { color: "text-emerald-800", bg: "bg-emerald-100", border: "border-emerald-200", bar: "bg-emerald-500", rank: 1, chartColor: "#059669" },
-  "A":  { color: "text-emerald-700", bg: "bg-emerald-50",  border: "border-emerald-200", bar: "bg-emerald-400", rank: 2, chartColor: "#10b981" },
-  "B":  { color: "text-blue-800",    bg: "bg-blue-100",    border: "border-blue-200",    bar: "bg-blue-500",    rank: 3, chartColor: "#3b82f6" },
-  "C":  { color: "text-amber-800",   bg: "bg-amber-100",   border: "border-amber-200",   bar: "bg-amber-500",   rank: 4, chartColor: "#f59e0b" },
-  "D":  { color: "text-orange-800",  bg: "bg-orange-100",  border: "border-orange-200",  bar: "bg-orange-500",  rank: 5, chartColor: "#f97316" },
-  "F":  { color: "text-red-800",     bg: "bg-red-100",     border: "border-red-200",     bar: "bg-red-500",     rank: 6, chartColor: "#ef4444" },
+const GRADE_CFG: Record<string, {
+  color: string; bg: string; border: string; bar: string;
+  rank: number; chartColor: string; textClass: string; bgClass: string; borderClass: string;
+}> = {
+  "A+": { color: "#065f46", bg: "#d1fae5", border: "#a7f3d0", bar: "linear-gradient(90deg,#059669,#10b981)", rank:1, chartColor:"#059669", textClass:"text-emerald-700", bgClass:"bg-emerald-100", borderClass:"border-emerald-200" },
+  "A":  { color: "#0f766e", bg: "#ccfbf1", border: "#99f6e4", bar: "linear-gradient(90deg,#0d9488,#14b8a6)", rank:2, chartColor:"#14b8a6", textClass:"text-teal-700",    bgClass:"bg-teal-100",    borderClass:"border-teal-200" },
+  "B":  { color: "#1d4ed8", bg: "#dbeafe", border: "#bfdbfe", bar: "linear-gradient(90deg,#3b82f6,#60a5fa)", rank:3, chartColor:"#3b82f6", textClass:"text-blue-700",    bgClass:"bg-blue-100",    borderClass:"border-blue-200" },
+  "C":  { color: "#92400e", bg: "#fef3c7", border: "#fde68a", bar: "linear-gradient(90deg,#d97706,#f59e0b)", rank:4, chartColor:"#f59e0b", textClass:"text-amber-700",   bgClass:"bg-amber-100",   borderClass:"border-amber-200" },
+  "D":  { color: "#9a3412", bg: "#fed7aa", border: "#fdba74", bar: "linear-gradient(90deg,#ea580c,#f97316)", rank:5, chartColor:"#f97316", textClass:"text-orange-700",  bgClass:"bg-orange-100",  borderClass:"border-orange-200" },
+  "F":  { color: "#991b1b", bg: "#fee2e2", border: "#fecaca", bar: "linear-gradient(90deg,#dc2626,#ef4444)", rank:6, chartColor:"#ef4444", textClass:"text-red-700",     bgClass:"bg-red-100",     borderClass:"border-red-200" },
 };
 
-const STATUS_CONFIG: Record<EmploymentStatus, { label: string; color: string; bg: string }> = {
-  [EmploymentStatus.ACTIVE]:     { label: "Actif",    color: "text-emerald-700", bg: "bg-emerald-50 border-emerald-200" },
-  [EmploymentStatus.INACTIVE]:   { label: "Inactif",  color: "text-slate-500",   bg: "bg-slate-50 border-slate-200" },
-  [EmploymentStatus.ON_LEAVE]:   { label: "Congé",    color: "text-amber-700",   bg: "bg-amber-50 border-amber-200" },
-  [EmploymentStatus.TERMINATED]: { label: "Résilié",  color: "text-red-700",     bg: "bg-red-50 border-red-200" },
+const STATUS_CFG: Record<EmploymentStatus, { label: string; dot: string; bg: string; color: string; twBg: string; twText: string; twBorder: string }> = {
+  [EmploymentStatus.ACTIVE]:     { label:"Actif",   dot:"#14b8a6", bg:"#f0fdfa", color:"#0f766e", twBg:"bg-teal-50",   twText:"text-teal-700",   twBorder:"border-teal-200" },
+  [EmploymentStatus.INACTIVE]:   { label:"Inactif", dot:"#94a3b8", bg:"#f8fafc", color:"#475569", twBg:"bg-slate-50",  twText:"text-slate-600",  twBorder:"border-slate-200" },
+  [EmploymentStatus.ON_LEAVE]:   { label:"Congé",   dot:"#f59e0b", bg:"#fffbeb", color:"#92400e", twBg:"bg-amber-50",  twText:"text-amber-700",  twBorder:"border-amber-200" },
+  [EmploymentStatus.TERMINATED]: { label:"Résilié", dot:"#ef4444", bg:"#fff1f2", color:"#991b1b", twBg:"bg-rose-50",   twText:"text-rose-700",   twBorder:"border-rose-200" },
 };
 
 const ROLE_LABELS: Partial<Record<UserRole, string>> = {
-  [UserRole.MEMBER]:          "Membre",
-  [UserRole.AGENT_TELEPRO]:   "Agent Telepro",
-  [UserRole.COMMERCIAL]:      "Commercial",
-  [UserRole.MARKETING_AGENT]: "Agent Marketing",
-  [UserRole.QUALITE_AGENT]:   "Agent Qualité",
-  [UserRole.TECH_SUPPORT]:    "Support Technique",
+  [UserRole.MEMBER]: "Membre", [UserRole.AGENT_TELEPRO]: "Agent Telepro",
+  [UserRole.COMMERCIAL]: "Commercial", [UserRole.MARKETING_AGENT]: "Agent Marketing",
+  [UserRole.QUALITE_AGENT]: "Agent Qualité", [UserRole.TECH_SUPPORT]: "Support Technique",
 };
 
 const DOMAIN_COLORS: Record<string, string> = {
-  IT:         "#0ea5e9",
-  Marketing:  "#d946ef",
-  CallCenter: "#f59e0b",
+  IT:"#0ea5e9", Marketing:"#d946ef", CallCenter:"#f59e0b",
 };
-
-const PIE_COLORS = ["#6366f1", "#22c55e", "#f59e0b", "#ef4444", "#a855f7", "#0ea5e9"];
 
 // ─── Helpers ──────────────────────────────────────────────────────────────────
 
-function scoreToPercent(score: number) { return Math.min(100, Math.round((score / 120) * 100)); }
+const initials = (n: string) => n.split(" ").map(s => s[0]).slice(0, 2).join("").toUpperCase();
+const scoreToPercent = (s: number) => Math.min(100, Math.round((s / 120) * 100));
+const isLate = (p: Project) => p.status !== "completed" && !!p.endDate && new Date(p.endDate) < new Date();
 
-function isProjectLate(p: Project): boolean {
-  if (p.status === "completed") return false;
-  if (!p.endDate) return false;
-  return new Date(p.endDate) < new Date();
-}
-
-function getMedalIcon(rank: number) {
-  if (rank === 1) return <Medal size={14} className="text-yellow-500 fill-yellow-400" />;
-  if (rank === 2) return <Medal size={14} className="text-slate-400 fill-slate-300" />;
-  if (rank === 3) return <Medal size={14} className="text-amber-700 fill-amber-600" />;
+function getMedal(rank: number) {
+  if (rank === 1) return "🥇";
+  if (rank === 2) return "🥈";
+  if (rank === 3) return "🥉";
   return null;
 }
 
 // ─── Sub-components ───────────────────────────────────────────────────────────
 
-function ScoreBar({ value, max = 100, colorClass }: { value: number; max?: number; colorClass: string }) {
-  const pct = Math.min(100, Math.round((value / max) * 100));
+function KpiCard({ label, value, sub, accent = false, icon }: {
+  label: string; value: string | number; sub?: string; accent?: boolean; icon?: React.ReactNode;
+}) {
   return (
-    <div className="w-full h-1.5 bg-slate-100 rounded-full overflow-hidden">
-      <div className={`h-full rounded-full transition-all ${colorClass}`} style={{ width: `${pct}%` }} />
-    </div>
-  );
-}
-
-function SortButton({ field, current, dir, onClick }: { field: SortField; current: SortField; dir: SortDir; onClick: (f: SortField) => void }) {
-  const active = current === field;
-  return (
-    <button onClick={() => onClick(field)} className={`inline-flex items-center gap-0.5 ${active ? "text-indigo-600" : "text-slate-400 hover:text-slate-600"}`}>
-      {active ? (dir === "asc" ? <ChevronUp size={14} /> : <ChevronDown size={14} />) : <ChevronsUpDown size={14} />}
-    </button>
-  );
-}
-
-function StatCard({ label, value, icon, accent, sub }: { label: string; value: string | number; icon: React.ReactNode; accent: string; sub?: string }) {
-  return (
-    <div className="bg-white rounded-2xl border border-slate-200 p-4">
-      <div className="flex items-center justify-between mb-2">
-        <span className="text-xs font-semibold text-slate-500 uppercase tracking-wider">{label}</span>
-        <span className={`w-8 h-8 rounded-xl flex items-center justify-center ${accent}`}>{icon}</span>
+    <div className={`
+      relative overflow-hidden rounded-2xl p-4 border transition-all duration-200 hover:-translate-y-0.5 hover:shadow-md
+      ${accent
+        ? "bg-gradient-to-br from-teal-500 to-cyan-500 border-teal-400 text-white shadow-teal-200/60 shadow-lg"
+        : "bg-white border-slate-100 shadow-sm"
+      }
+    `}>
+      {accent && <div className="absolute -top-4 -right-4 w-16 h-16 rounded-full bg-white/10" />}
+      <div className="flex items-start justify-between mb-2">
+        <p className={`text-[11px] font-semibold uppercase tracking-wider ${accent ? "text-teal-100" : "text-slate-400"}`}>{label}</p>
+        {icon && <span className={accent ? "text-teal-100" : "text-teal-400"}>{icon}</span>}
       </div>
-      <div className="text-2xl font-bold text-slate-900">{value}</div>
-      {sub && <div className="text-xs text-slate-400 mt-0.5">{sub}</div>}
+      <p className={`text-xl font-bold leading-none ${accent ? "text-white" : "text-slate-800"}`}>{value}</p>
+      {sub && <p className={`text-[11px] mt-1.5 ${accent ? "text-teal-100" : "text-slate-400"}`}>{sub}</p>}
     </div>
   );
+}
+
+function ScoreBar({ value, barStyle }: { value: number; barStyle: string }) {
+  return (
+    <div className="h-1 rounded-full bg-slate-100 overflow-hidden w-full">
+      <div className="h-full rounded-full" style={{ width: `${value}%`, background: barStyle }} />
+    </div>
+  );
+}
+
+function StyledSelect({ value, onChange, options, icon }: {
+  value: string; onChange: (v: string) => void;
+  options: { value: string; label: string }[]; icon?: React.ReactNode;
+}) {
+  return (
+    <div className="flex items-center gap-1.5 bg-teal-50/50 border border-teal-100 rounded-xl px-3 py-2 flex-1 min-w-[130px]">
+      {icon && <span className="text-teal-400 flex-shrink-0">{icon}</span>}
+      <select
+        value={value} onChange={e => onChange(e.target.value)}
+        className="bg-transparent border-none outline-none text-[12px] text-teal-800 font-semibold cursor-pointer w-full"
+      >
+        {options.map(o => <option key={o.value} value={o.value}>{o.label}</option>)}
+      </select>
+    </div>
+  );
+}
+
+function SectionCard({ title, icon, children, className = "" }: {
+  title?: string; icon?: React.ReactNode; children: React.ReactNode; className?: string;
+}) {
+  return (
+    <div className={`bg-white rounded-3xl border border-slate-100 shadow-sm overflow-hidden ${className}`}>
+      {title && (
+        <div className="flex items-center gap-2.5 px-5 pt-5 pb-4 border-b border-slate-50">
+          {icon && <span className="text-teal-500">{icon}</span>}
+          <h2 className="text-[13px] font-bold text-slate-700 tracking-tight">{title}</h2>
+        </div>
+      )}
+      <div className="p-5">{children}</div>
+    </div>
+  );
+}
+
+function FmtPct({ v }: { v: number | undefined }) {
+  if (v === undefined || v === null) return <span className="text-slate-300 text-xs">—</span>;
+  const pct = v <= 1 ? v * 100 : v;
+  const cls = pct >= 80 ? "text-teal-700" : pct >= 60 ? "text-amber-600" : "text-red-600";
+  return <span className={`font-bold ${cls}`}>{pct.toFixed(0)}%</span>;
 }
 
 // ─── Charts Section ───────────────────────────────────────────────────────────
 
-function ChartsSection({ usersWithProfiles, projects }: { usersWithProfiles: UserWithProfile[]; projects: Project[] }) {
-  const withProfile = usersWithProfiles.filter(u => u.profile);
+function ChartsSection({ users, projects }: { users: UserWithProfile[]; projects: Project[] }) {
+  const wp = users.filter(u => u.profile);
 
-  // 1. Grade distribution bar chart
   const gradeDist = useMemo(() => {
     const map: Record<string, number> = {};
-    withProfile.forEach(u => {
-      const g = u.profile!.grade;
-      map[g] = (map[g] ?? 0) + 1;
-    });
-    return Object.entries(GRADE_CONFIG)
-      .filter(([g]) => map[g])
+    wp.forEach(u => { const g = u.profile!.grade; map[g] = (map[g] ?? 0) + 1; });
+    return Object.entries(GRADE_CFG).filter(([g]) => map[g])
       .map(([grade, cfg]) => ({ grade, count: map[grade] ?? 0, fill: cfg.chartColor }));
-  }, [withProfile]);
+  }, [wp]);
 
-  // 2. Score distribution (buckets 0-20, 20-40, 40-60, 60-80, 80-100, 100-120)
   const scoreDist = useMemo(() => {
-    const buckets = [
-      { range: "0–20", min: 0, max: 20, count: 0 },
-      { range: "20–40", min: 20, max: 40, count: 0 },
-      { range: "40–60", min: 40, max: 60, count: 0 },
-      { range: "60–80", min: 60, max: 80, count: 0 },
-      { range: "80–100", min: 80, max: 100, count: 0 },
-      { range: "100–120", min: 100, max: 120, count: 0 },
+    const b = [
+      { range:"0–20",min:0,max:20,count:0 }, { range:"20–40",min:20,max:40,count:0 },
+      { range:"40–60",min:40,max:60,count:0 }, { range:"60–80",min:60,max:80,count:0 },
+      { range:"80–100",min:80,max:100,count:0 }, { range:"100+",min:100,max:121,count:0 },
     ];
-    withProfile.forEach(u => {
+    wp.forEach(u => {
       const s = Number(u.profile!.globalScore);
-      const bucket = buckets.find(b => s >= b.min && s < b.max) ?? buckets[buckets.length - 1];
-bucket.count++;
+      const bk = b.find(x => s >= x.min && s < x.max) ?? b[b.length - 1];
+      bk.count++;
     });
-    return buckets;
-  }, [withProfile]);
+    return b;
+  }, [wp]);
 
-  // 3. Domain scores radar — average per domain
+  const projStatus = useMemo(() => [
+    { name:"Terminés",  value: projects.filter(p => p.status === "completed").length,            color:"#14b8a6" },
+    { name:"En retard", value: projects.filter(p => isLate(p)).length,                           color:"#ef4444" },
+    { name:"En cours",  value: projects.filter(p => p.status === "in_progress" && !isLate(p)).length, color:"#3b82f6" },
+    { name:"Planifiés", value: projects.filter(p => p.status === "planned").length,              color:"#94a3b8" },
+  ].filter(d => d.value > 0), [projects]);
+
   const domainRadar = useMemo(() => [
-    { domain: "IT",         score: withProfile.length ? withProfile.reduce((s, u) => s + Number(u.profile!.itScore ?? 0), 0) / withProfile.length : 0 },
-    { domain: "Marketing",  score: withProfile.length ? withProfile.reduce((s, u) => s + Number(u.profile!.marketingScore ?? 0), 0) / withProfile.length : 0 },
-    { domain: "Call Center",score: withProfile.length ? withProfile.reduce((s, u) => s + Number(u.profile!.callCenterScore ?? 0), 0) / withProfile.length : 0 },
-  ], [withProfile]);
+    { domain:"IT",          score: wp.length ? wp.reduce((s,u) => s + Number(u.profile!.itScore ?? 0), 0) / wp.length : 0 },
+    { domain:"Marketing",   score: wp.length ? wp.reduce((s,u) => s + Number(u.profile!.marketingScore ?? 0), 0) / wp.length : 0 },
+    { domain:"Call Center", score: wp.length ? wp.reduce((s,u) => s + Number(u.profile!.callCenterScore ?? 0), 0) / wp.length : 0 },
+  ], [wp]);
 
-  // 4. Projects: on time vs late vs completed
-  const projectStatus = useMemo(() => {
-    const completed = projects.filter(p => p.status === "completed").length;
-    const late      = projects.filter(p => isProjectLate(p)).length;
-    const onTrack   = projects.filter(p => p.status !== "completed" && !isProjectLate(p) && p.status === "in_progress").length;
-    const planned   = projects.filter(p => p.status === "planned").length;
-    return [
-      { name: "Terminés à temps", value: completed, color: "#22c55e" },
-      { name: "En retard",        value: late,       color: "#ef4444" },
-      { name: "En cours (OK)",    value: onTrack,    color: "#3b82f6" },
-      { name: "Planifiés",        value: planned,    color: "#94a3b8" },
-    ].filter(d => d.value > 0);
-  }, [projects]);
-
-  // 5. Projects per domain
-  const projectsByDomain = useMemo(() => {
-    const map: Record<string, { total: number; late: number; done: number }> = {};
-    projects.forEach(p => {
-      if (!map[p.domain]) map[p.domain] = { total: 0, late: 0, done: 0 };
-      map[p.domain].total++;
-      if (p.status === "completed") map[p.domain].done++;
-      if (isProjectLate(p)) map[p.domain].late++;
-    });
-    return Object.entries(map).map(([domain, v]) => ({ domain, ...v }));
-  }, [projects]);
-
-  // 6. On-time rate evolution (by top performers vs at-risk)
-  const performanceComparison = useMemo(() => {
-    const topPerformers    = withProfile.filter(u => ["A+", "A"].includes(u.profile!.grade));
-    const atRisk           = withProfile.filter(u => ["D", "F"].includes(u.profile!.grade));
-    const mid              = withProfile.filter(u => ["B", "C"].includes(u.profile!.grade));
-    const avgOnTime = (arr: UserWithProfile[]) =>
-      arr.length ? arr.reduce((s, u) => {
-        const v = Number(u.profile!.onTimeRate);
-        return s + (v <= 1 ? v * 100 : v);
-      }, 0) / arr.length : 0;
-    return [
-      { group: "Top (A/A+)", onTime: Math.round(avgOnTime(topPerformers)), score: topPerformers.length ? topPerformers.reduce((s, u) => s + Number(u.profile!.globalScore), 0) / topPerformers.length : 0 },
-      { group: "Moyen (B/C)", onTime: Math.round(avgOnTime(mid)), score: mid.length ? mid.reduce((s, u) => s + Number(u.profile!.globalScore), 0) / mid.length : 0 },
-      { group: "À risque (D/F)", onTime: Math.round(avgOnTime(atRisk)), score: atRisk.length ? atRisk.reduce((s, u) => s + Number(u.profile!.globalScore), 0) / atRisk.length : 0 },
-    ];
-  }, [withProfile]);
-
-  // 7. Tasks done by domain (stacked)
-  const tasksByDomain = useMemo(() => {
-    return withProfile.map(u => ({
+  const tasksByDomain = useMemo(() =>
+    wp.map(u => ({
       name: u.fullname.split(" ")[0],
-      IT:         u.profile!.itTasksDone ?? 0,
-      Marketing:  u.profile!.marketingTasksDone ?? 0,
+      IT: u.profile!.itTasksDone ?? 0,
+      Marketing: u.profile!.marketingTasksDone ?? 0,
       CallCenter: u.profile!.callCenterTasksDone ?? 0,
     })).filter(u => u.IT + u.Marketing + u.CallCenter > 0)
       .sort((a, b) => (b.IT + b.Marketing + b.CallCenter) - (a.IT + a.Marketing + a.CallCenter))
-      .slice(0, 12);
-  }, [withProfile]);
+      .slice(0, 12),
+    [wp]
+  );
+
+  const ttip = {
+    contentStyle: { borderRadius: 14, border: "1.5px solid #99f6e4", fontSize: 12 }
+  };
 
   return (
-    <div className="space-y-5">
+    <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+      <SectionCard title="Distribution des grades" icon={<Award size={15}/>}>
+        <ResponsiveContainer width="100%" height={190}>
+          <BarChart data={gradeDist} margin={{ top:0, right:8, bottom:0, left:-24 }}>
+            <CartesianGrid strokeDasharray="3 3" stroke="#f0fdfa" vertical={false}/>
+            <XAxis dataKey="grade" tick={{ fontSize:12, fontWeight:600 }}/>
+            <YAxis tick={{ fontSize:11 }} allowDecimals={false}/>
+            <Tooltip {...ttip} formatter={(v:any) => [v, "Employés"]}/>
+            <Bar dataKey="count" name="Employés" radius={[8,8,0,0]} maxBarSize={44}>
+              {gradeDist.map((e,i) => <Cell key={i} fill={e.fill}/>)}
+            </Bar>
+          </BarChart>
+        </ResponsiveContainer>
+      </SectionCard>
 
-      {/* ── Row 1: Grade dist + Score dist ── */}
-      <div className="grid grid-cols-1 md:grid-cols-2 gap-5">
+      <SectionCard title="Distribution des scores" icon={<BarChart2 size={15}/>}>
+        <ResponsiveContainer width="100%" height={190}>
+          <AreaChart data={scoreDist} margin={{ top:0, right:8, bottom:0, left:-24 }}>
+            <defs>
+              <linearGradient id="sghr" x1="0" y1="0" x2="0" y2="1">
+                <stop offset="5%"  stopColor="#14b8a6" stopOpacity={0.4}/>
+                <stop offset="95%" stopColor="#14b8a6" stopOpacity={0}/>
+              </linearGradient>
+            </defs>
+            <CartesianGrid strokeDasharray="3 3" stroke="#f0fdfa" vertical={false}/>
+            <XAxis dataKey="range" tick={{ fontSize:10 }}/>
+            <YAxis tick={{ fontSize:11 }} allowDecimals={false}/>
+            <Tooltip {...ttip} formatter={(v:any) => [v, "Employés"]}/>
+            <Area type="monotone" dataKey="count" name="Employés"
+              stroke="#14b8a6" fill="url(#sghr)" strokeWidth={2.5}/>
+          </AreaChart>
+        </ResponsiveContainer>
+      </SectionCard>
 
-        {/* Grade distribution */}
-        <div className="bg-white rounded-2xl border border-slate-200 p-5 shadow-sm">
-          <h3 className="text-sm font-bold text-slate-700 mb-4 flex items-center gap-2">
-            <Award size={15} className="text-indigo-500"/> Distribution des grades
-          </h3>
-          <ResponsiveContainer width="100%" height={200}>
-            <BarChart data={gradeDist} margin={{ top: 0, right: 10, bottom: 0, left: -20 }}>
-              <CartesianGrid strokeDasharray="3 3" stroke="#f1f5f9" vertical={false}/>
-              <XAxis dataKey="grade" tick={{ fontSize: 12, fontWeight: 600 }}/>
-              <YAxis tick={{ fontSize: 11 }} allowDecimals={false}/>
-              <Tooltip
-                contentStyle={{ borderRadius: 12, border: "1px solid #e2e8f0", fontSize: 12 }}
-                formatter={(v: ValueType) => [v ?? 0, "Employés"]}
-              />
-              <Bar dataKey="count" name="Employés" radius={[6, 6, 0, 0]} maxBarSize={48}>
-                {gradeDist.map((entry, i) => <Cell key={i} fill={entry.fill} />)}
-              </Bar>
-            </BarChart>
-          </ResponsiveContainer>
-        </div>
-
-        {/* Score distribution */}
-        <div className="bg-white rounded-2xl border border-slate-200 p-5 shadow-sm">
-          <h3 className="text-sm font-bold text-slate-700 mb-4 flex items-center gap-2">
-            <BarChart2 size={15} className="text-blue-500"/> Distribution des scores (/ 120)
-          </h3>
-          <ResponsiveContainer width="100%" height={200}>
-            <AreaChart data={scoreDist} margin={{ top: 0, right: 10, bottom: 0, left: -20 }}>
-              <defs>
-                <linearGradient id="scoreGrad" x1="0" y1="0" x2="0" y2="1">
-                  <stop offset="5%" stopColor="#6366f1" stopOpacity={0.35}/>
-                  <stop offset="95%" stopColor="#6366f1" stopOpacity={0}/>
-                </linearGradient>
-              </defs>
-              <CartesianGrid strokeDasharray="3 3" stroke="#f1f5f9" vertical={false}/>
-              <XAxis dataKey="range" tick={{ fontSize: 11 }}/>
-              <YAxis tick={{ fontSize: 11 }} allowDecimals={false}/>
-              <Tooltip contentStyle={{ borderRadius: 12, border: "1px solid #e2e8f0", fontSize: 12 }}
-                formatter={(v: ValueType) => [v ?? 0, "Employés"]}/>
-              <Area type="monotone" dataKey="count" name="Employés" stroke="#6366f1"
-                fill="url(#scoreGrad)" strokeWidth={2.5}/>
-            </AreaChart>
-          </ResponsiveContainer>
-        </div>
-      </div>
-
-      {/* ── Row 2: Projects status pie + Projects by domain ── */}
-      <div className="grid grid-cols-1 md:grid-cols-2 gap-5">
-
-        {/* Projects: on time vs late */}
-        <div className="bg-white rounded-2xl border border-slate-200 p-5 shadow-sm">
-          <h3 className="text-sm font-bold text-slate-700 mb-1 flex items-center gap-2">
-            <Clock size={15} className="text-amber-500"/> Projets : délais respectés vs en retard
-          </h3>
-          <p className="text-xs text-slate-400 mb-4">
-            Un projet est <span className="text-red-500 font-medium">en retard</span> si sa date de fin est dépassée et il n'est pas terminé.
-          </p>
-          {projectStatus.length === 0 ? (
-            <p className="text-xs text-slate-400 text-center py-8">Aucun projet disponible.</p>
-          ) : (
-            <ResponsiveContainer width="100%" height={200}>
+      <SectionCard title="Statut des projets" icon={<Clock size={15}/>}>
+        {projStatus.length === 0
+          ? <p className="text-center text-slate-300 text-sm py-8">Aucun projet</p>
+          : (
+            <ResponsiveContainer width="100%" height={190}>
               <PieChart>
-                <Pie data={projectStatus} cx="50%" cy="50%" outerRadius={75} innerRadius={40}
+                <Pie data={projStatus} cx="50%" cy="50%" outerRadius={70} innerRadius={35}
                   dataKey="value" nameKey="name"
-                  label={({ name, percent }) => `${Math.round(percent * 100)}%`}
-                  labelLine={false}>
-                  {projectStatus.map((entry, i) => <Cell key={i} fill={entry.color} />)}
+                  label={({ percent }) => `${Math.round(percent * 100)}%`} labelLine={false}>
+                  {projStatus.map((e, i) => <Cell key={i} fill={e.color}/>)}
                 </Pie>
-                <Legend iconType="circle" iconSize={9} wrapperStyle={{ fontSize: 11 }}/>
-                <Tooltip contentStyle={{ borderRadius: 12, fontSize: 12 }}/>
+                <Legend iconType="circle" iconSize={9} wrapperStyle={{ fontSize:11 }}/>
+                <Tooltip {...ttip}/>
               </PieChart>
             </ResponsiveContainer>
-          )}
-        </div>
+          )
+        }
+      </SectionCard>
 
-        {/* Projects per domain — on time vs late */}
-        <div className="bg-white rounded-2xl border border-slate-200 p-5 shadow-sm">
-          <h3 className="text-sm font-bold text-slate-700 mb-4 flex items-center gap-2">
-            <AlertTriangle size={15} className="text-red-500"/> Retards par domaine de projet
-          </h3>
-          {projectsByDomain.length === 0 ? (
-            <p className="text-xs text-slate-400 text-center py-8">Aucun projet disponible.</p>
-          ) : (
-            <ResponsiveContainer width="100%" height={200}>
-              <BarChart data={projectsByDomain} margin={{ top: 0, right: 10, bottom: 0, left: -20 }}>
-                <CartesianGrid strokeDasharray="3 3" stroke="#f1f5f9" vertical={false}/>
-                <XAxis dataKey="domain" tick={{ fontSize: 12 }}/>
-                <YAxis tick={{ fontSize: 11 }} allowDecimals={false}/>
-                <Tooltip contentStyle={{ borderRadius: 12, fontSize: 12 }}/>
-                <Legend iconType="circle" iconSize={9} wrapperStyle={{ fontSize: 11 }}/>
-                <Bar dataKey="done" name="Terminés"   fill="#22c55e" radius={[4, 4, 0, 0]} stackId="a"/>
-                <Bar dataKey="late" name="En retard"  fill="#ef4444" radius={[4, 4, 0, 0]} stackId="a"/>
-              </BarChart>
-            </ResponsiveContainer>
-          )}
-        </div>
-      </div>
+      <SectionCard title="Scores moyens par domaine" icon={<Activity size={15}/>}>
+        <ResponsiveContainer width="100%" height={190}>
+          <RadarChart data={domainRadar} outerRadius={65}>
+            <PolarGrid stroke="rgba(20,184,166,.2)"/>
+            <PolarAngleAxis dataKey="domain" tick={{ fontSize:11 }}/>
+            <Radar name="Score" dataKey="score" stroke="#14b8a6" fill="#14b8a6" fillOpacity={0.25} strokeWidth={2}/>
+            <Tooltip {...ttip} formatter={(v: number) => [v.toFixed(1), "Score moyen"]}/>
+          </RadarChart>
+        </ResponsiveContainer>
+      </SectionCard>
 
-      {/* ── Row 3: Performance comparison + Domain scores ── */}
-      <div className="grid grid-cols-1 md:grid-cols-2 gap-5">
-
-        {/* On-time rate by grade group */}
-        <div className="bg-white rounded-2xl border border-slate-200 p-5 shadow-sm">
-          <h3 className="text-sm font-bold text-slate-700 mb-4 flex items-center gap-2">
-            <TrendingUp size={15} className="text-emerald-500"/> Taux à temps & score moyen par groupe
-          </h3>
-          <ResponsiveContainer width="100%" height={200}>
-            <BarChart data={performanceComparison} margin={{ top: 0, right: 10, bottom: 0, left: -20 }}>
-              <CartesianGrid strokeDasharray="3 3" stroke="#f1f5f9" vertical={false}/>
-              <XAxis dataKey="group" tick={{ fontSize: 10 }}/>
-              <YAxis tick={{ fontSize: 11 }}/>
-              <Tooltip contentStyle={{ borderRadius: 12, fontSize: 12 }}
-                formatter={(v: number, name: string) => [
-                  name === "onTime" ? `${v}%` : v.toFixed(1),
-                  name === "onTime" ? "Taux à temps" : "Score moyen"
-                ]}/>
-              <Legend iconType="circle" iconSize={9} wrapperStyle={{ fontSize: 11 }}/>
-              <Bar dataKey="onTime" name="Taux à temps (%)" fill="#6366f1" radius={[6, 6, 0, 0]} maxBarSize={48}/>
-              <Bar dataKey="score"  name="Score moyen"      fill="#22c55e" radius={[6, 6, 0, 0]} maxBarSize={48}/>
-            </BarChart>
-          </ResponsiveContainer>
-        </div>
-
-        {/* Domain scores radar */}
-        <div className="bg-white rounded-2xl border border-slate-200 p-5 shadow-sm">
-          <h3 className="text-sm font-bold text-slate-700 mb-4 flex items-center gap-2">
-            <Activity size={15} className="text-purple-500"/> Scores moyens par domaine
-          </h3>
-          <ResponsiveContainer width="100%" height={200}>
-            <RadarChart data={domainRadar} outerRadius={70}>
-              <PolarGrid />
-              <PolarAngleAxis dataKey="domain" tick={{ fontSize: 11 }}/>
-              <Radar name="Score moyen" dataKey="score" stroke="#6366f1" fill="#6366f1" fillOpacity={0.3}/>
-              <Tooltip contentStyle={{ borderRadius: 12, fontSize: 12 }}
-                formatter={(v: number) => [v.toFixed(1), "Score moyen"]}/>
-            </RadarChart>
-          </ResponsiveContainer>
-        </div>
-      </div>
-
-      {/* ── Row 4: Tasks by domain per employee ── */}
       {tasksByDomain.length > 0 && (
-        <div className="bg-white rounded-2xl border border-slate-200 p-5 shadow-sm">
-          <h3 className="text-sm font-bold text-slate-700 mb-4 flex items-center gap-2">
-            <Target size={15} className="text-violet-500"/> Tâches complétées par domaine (top 12 employés)
-          </h3>
-          <ResponsiveContainer width="100%" height={220}>
-            <BarChart data={tasksByDomain} margin={{ top: 0, right: 10, bottom: 0, left: -20 }}>
-              <CartesianGrid strokeDasharray="3 3" stroke="#f1f5f9" vertical={false}/>
-              <XAxis dataKey="name" tick={{ fontSize: 11 }}/>
-              <YAxis tick={{ fontSize: 11 }} allowDecimals={false}/>
-              <Tooltip contentStyle={{ borderRadius: 12, fontSize: 12 }}/>
-              <Legend iconType="circle" iconSize={9} wrapperStyle={{ fontSize: 11 }}/>
-              <Bar dataKey="IT"         name="IT"          fill={DOMAIN_COLORS.IT}         radius={[0, 0, 0, 0]} stackId="t"/>
-              <Bar dataKey="Marketing"  name="Marketing"   fill={DOMAIN_COLORS.Marketing}  radius={[0, 0, 0, 0]} stackId="t"/>
-              <Bar dataKey="CallCenter" name="Call Center" fill={DOMAIN_COLORS.CallCenter} radius={[4, 4, 0, 0]} stackId="t"/>
+        <SectionCard title="Tâches par domaine (top employés)" icon={<Target size={15}/>} className="col-span-1 md:col-span-2">
+          <ResponsiveContainer width="100%" height={210}>
+            <BarChart data={tasksByDomain} margin={{ top:0, right:8, bottom:0, left:-24 }}>
+              <CartesianGrid strokeDasharray="3 3" stroke="#f0fdfa" vertical={false}/>
+              <XAxis dataKey="name" tick={{ fontSize:11 }}/>
+              <YAxis tick={{ fontSize:11 }} allowDecimals={false}/>
+              <Tooltip {...ttip}/>
+              <Legend iconType="circle" iconSize={9} wrapperStyle={{ fontSize:11 }}/>
+              <Bar dataKey="IT" name="IT" fill={DOMAIN_COLORS.IT} stackId="t"/>
+              <Bar dataKey="Marketing" name="Marketing" fill={DOMAIN_COLORS.Marketing} stackId="t"/>
+              <Bar dataKey="CallCenter" name="Call Center" fill={DOMAIN_COLORS.CallCenter} radius={[5,5,0,0]} stackId="t"/>
             </BarChart>
           </ResponsiveContainer>
-        </div>
+        </SectionCard>
       )}
     </div>
   );
@@ -454,453 +321,541 @@ bucket.count++;
 export default function HRScoreboardPage() {
   const router = useRouter();
 
-  const [usersWithProfiles, setUsersWithProfiles] = useState<UserWithProfile[]>([]);
-  const [projects, setProjects]                   = useState<Project[]>([]);
-  const [loading, setLoading]                     = useState(true);
-  const [error, setError]                         = useState("");
-  const [activeTab, setActiveTab]                 = useState<"table" | "charts">("table");
+  const [users, setUsers]       = useState<UserWithProfile[]>([]);
+  const [projects, setProjects] = useState<Project[]>([]);
+  const [loading, setLoading]   = useState(true);
+  const [error, setError]       = useState("");
+  const [view, setView]         = useState<ViewMode>("cards");
 
-  const [searchTerm,     setSearchTerm]     = useState("");
-  const [selectedGrade,  setSelectedGrade]  = useState("ALL");
-  const [selectedStatus, setSelectedStatus] = useState("ALL");
-  const [selectedRole,   setSelectedRole]   = useState("ALL");
-  const [showNoProfile,  setShowNoProfile]  = useState(true);
-  const [sortField,      setSortField]      = useState<SortField>("globalScore");
-  const [sortDir,        setSortDir]        = useState<SortDir>("desc");
+  const [search,     setSearch]     = useState("");
+  const [grade,      setGrade]      = useState("ALL");
+  const [status,     setStatus]     = useState("ALL");
+  const [role,       setRole]       = useState("ALL");
+  const [showNoProf, setShowNoProf] = useState(true);
+  const [sortField,  setSortField]  = useState<SortField>("globalScore");
+  const [sortDir,    setSortDir]    = useState<SortDir>("desc");
 
   // ── Fetch ──────────────────────────────────────────────────────────────────
-
   useEffect(() => {
-    const load = async () => {
+    (async () => {
       try {
         const token = localStorage.getItem("access_token");
         if (!token) throw new Error("Token manquant");
-
-        const headers = { Authorization: `Bearer ${token}` };
-        const base    = process.env.NEXT_PUBLIC_NEST_API_URL;
-
-        const [usersRes, profilesRes, projectsRes] = await Promise.all([
-          fetch(`${base}/users`,          { headers }),
-          fetch(`${base}/member-profiles`,{ headers }),
-          fetch(`${base}/projects`,       { headers }),
+        const h = { Authorization: `Bearer ${token}` };
+        const base = process.env.NEXT_PUBLIC_NEST_API_URL;
+        const [uR, pR, prR] = await Promise.all([
+          fetch(`${base}/users`, { headers: h }),
+          fetch(`${base}/member-profiles`, { headers: h }),
+          fetch(`${base}/projects`, { headers: h }),
         ]);
-
-        if (!usersRes.ok) throw new Error("Impossible de charger les utilisateurs");
-
-        const users: User[]           = await usersRes.json();
-        const profiles: MemberProfile[] = profilesRes.ok ? await profilesRes.json() : [];
-        const projs: Project[]          = projectsRes.ok ? await projectsRes.json() : [];
-
-        const profileMap = new Map<number, MemberProfile>();
-        profiles.forEach(p => profileMap.set(p.userId, p));
-
-        setUsersWithProfiles(users.map(u => ({ ...u, profile: profileMap.get(u.id) ?? null })));
-        setProjects(projs);
+        if (!uR.ok) throw new Error("Impossible de charger les utilisateurs");
+        const u: User[] = await uR.json();
+        const p: MemberProfile[] = pR.ok ? await pR.json() : [];
+        const pr: Project[] = prR.ok ? await prR.json() : [];
+        const pm = new Map(p.map(x => [x.userId, x]));
+        setUsers(u.map(x => ({ ...x, profile: pm.get(x.id) ?? null })));
+        setProjects(pr);
       } catch (e: any) {
         setError(e.message);
       } finally {
         setLoading(false);
       }
-    };
-    load();
+    })();
   }, []);
 
-  // ── Sort ───────────────────────────────────────────────────────────────────
-
-  const handleSort = (field: SortField) => {
-    if (sortField === field) setSortDir(d => d === "asc" ? "desc" : "asc");
-    else { setSortField(field); setSortDir("desc"); }
+  const handleSort = (f: SortField) => {
+    if (sortField === f) setSortDir(d => d === "asc" ? "desc" : "asc");
+    else { setSortField(f); setSortDir("desc"); }
   };
 
-  // ── Filter + sort ──────────────────────────────────────────────────────────
-
   const filtered = useMemo(() => {
-    let list = [...usersWithProfiles];
-    if (!showNoProfile) list = list.filter(u => u.profile);
+    let list = [...users];
+    if (!showNoProf) list = list.filter(u => u.profile);
     list = list.filter(u => {
-      const q = searchTerm.toLowerCase();
+      const q = search.toLowerCase();
       return (
         (!q || u.fullname.toLowerCase().includes(q) || u.email.toLowerCase().includes(q)) &&
-        (selectedGrade  === "ALL" || u.profile?.grade === selectedGrade) &&
-        (selectedStatus === "ALL" || u.profile?.employmentStatus === selectedStatus) &&
-        (selectedRole   === "ALL" || u.role === selectedRole)
+        (grade  === "ALL" || u.profile?.grade === grade) &&
+        (status === "ALL" || u.profile?.employmentStatus === status) &&
+        (role   === "ALL" || u.role === role)
       );
     });
     list.sort((a, b) => {
       const aP = a.profile, bP = b.profile;
-      if (!aP && !bP) return 0;
-      if (!aP) return 1;
-      if (!bP) return -1;
-      if (sortField === "fullname") {
-        return sortDir === "asc" ? a.fullname.localeCompare(b.fullname) : b.fullname.localeCompare(a.fullname);
-      }
+      if (!aP && !bP) return 0; if (!aP) return 1; if (!bP) return -1;
+      if (sortField === "fullname") return sortDir === "asc" ? a.fullname.localeCompare(b.fullname) : b.fullname.localeCompare(a.fullname);
       if (sortField === "grade") {
-        const av = GRADE_CONFIG[aP.grade]?.rank ?? 99;
-        const bv = GRADE_CONFIG[bP.grade]?.rank ?? 99;
+        const av = GRADE_CFG[aP.grade]?.rank ?? 99, bv = GRADE_CFG[bP.grade]?.rank ?? 99;
         return sortDir === "asc" ? av - bv : bv - av;
       }
-      const vals: Record<SortField, number> = {
-        fullname: 0, grade: 0,
-        globalScore:        Number(aP.globalScore),
-        totalTasksDone:     aP.totalTasksDone,
-        onTimeRate:         Number(aP.onTimeRate),
-        attendanceRate:     Number(aP.attendanceRate),
-        performanceRating:  Number(aP.performanceRating),
-      };
-      const bVals: Record<SortField, number> = {
-        fullname: 0, grade: 0,
-        globalScore:        Number(bP.globalScore),
-        totalTasksDone:     bP.totalTasksDone,
-        onTimeRate:         Number(bP.onTimeRate),
-        attendanceRate:     Number(bP.attendanceRate),
-        performanceRating:  Number(bP.performanceRating),
-      };
-      return sortDir === "asc" ? vals[sortField] - bVals[sortField] : bVals[sortField] - vals[sortField];
+      const get = (p: MemberProfile): number => ({
+        globalScore: Number(p.globalScore), totalTasksDone: p.totalTasksDone,
+        onTimeRate: Number(p.onTimeRate), attendanceRate: Number(p.attendanceRate),
+        performanceRating: Number(p.performanceRating), fullname: 0, grade: 0,
+      }[sortField]);
+      return sortDir === "asc" ? get(aP) - get(bP) : get(bP) - get(aP);
     });
     return list;
-  }, [usersWithProfiles, searchTerm, selectedGrade, selectedStatus, selectedRole, showNoProfile, sortField, sortDir]);
-
-  // ── KPI stats ──────────────────────────────────────────────────────────────
+  }, [users, search, grade, status, role, showNoProf, sortField, sortDir]);
 
   const stats = useMemo(() => {
-    const withProfile = usersWithProfiles.filter(u => u.profile);
-    const scores      = withProfile.map(u => Number(u.profile!.globalScore));
-    const avgScore    = scores.length ? (scores.reduce((a, b) => a + b, 0) / scores.length).toFixed(1) : "—";
-    const topGrade    = withProfile.filter(u => ["A+", "A"].includes(u.profile!.grade)).length;
-    const atRisk      = withProfile.filter(u => ["D", "F"].includes(u.profile!.grade)).length;
-    const lateProjects = projects.filter(p => isProjectLate(p)).length;
-    return { total: usersWithProfiles.length, withProfile: withProfile.length, avgScore, topGrade, atRisk, lateProjects };
-  }, [usersWithProfiles, projects]);
+    const wp = users.filter(u => u.profile);
+    const scores = wp.map(u => Number(u.profile!.globalScore));
+    return {
+      total: users.length,
+      withProf: wp.length,
+      avgScore: scores.length ? (scores.reduce((a, b) => a + b, 0) / scores.length).toFixed(1) : "—",
+      top: wp.filter(u => ["A+","A"].includes(u.profile!.grade)).length,
+      risk: wp.filter(u => ["D","F"].includes(u.profile!.grade)).length,
+      late: projects.filter(p => isLate(p)).length,
+    };
+  }, [users, projects]);
 
-  const grades = useMemo(() =>
-    ["ALL", ...Object.keys(GRADE_CONFIG).filter(g => usersWithProfiles.some(u => u.profile?.grade === g))],
-    [usersWithProfiles]
-  );
-  const roles = useMemo(() =>
-    ["ALL", ...new Set(usersWithProfiles.map(u => u.role))],
-    [usersWithProfiles]
-  );
-
-  // ── CSV export ─────────────────────────────────────────────────────────────
+  const grades = useMemo(() => ["ALL", ...Object.keys(GRADE_CFG).filter(g => users.some(u => u.profile?.grade === g))], [users]);
+  const roles  = useMemo(() => ["ALL", ...Array.from(new Set(users.map(u => u.role)))], [users]);
+  const hasFilters = search || grade !== "ALL" || status !== "ALL" || role !== "ALL";
 
   const handleExport = () => {
     const rows = [
-      ["Nom","Email","Rôle","Société","Grade","Score Global","Tâches","Taux à temps","Assiduité","Note RH","Statut"],
+      ["Nom","Email","Grade","Score","Tâches","Taux à temps","Assiduité","Note RH","Statut"],
       ...filtered.map(u => [
-        u.fullname, u.email, u.role, u.company?.name ?? "",
-        u.profile?.grade ?? "—",
+        u.fullname, u.email, u.profile?.grade ?? "—",
         u.profile?.globalScore?.toFixed(1) ?? "—",
         u.profile?.totalTasksDone ?? "—",
-        u.profile?.onTimeRate !== undefined ? `${(Number(u.profile.onTimeRate) * 100).toFixed(1)}%` : "—",
+        u.profile?.onTimeRate !== undefined ? `${(Number(u.profile.onTimeRate) <= 1 ? Number(u.profile.onTimeRate) * 100 : Number(u.profile.onTimeRate)).toFixed(1)}%` : "—",
         u.profile?.attendanceRate !== undefined ? `${Number(u.profile.attendanceRate).toFixed(1)}%` : "—",
         u.profile?.performanceRating?.toFixed(1) ?? "—",
         u.profile?.employmentStatus ?? "—",
       ]),
     ];
-    const csv  = rows.map(r => r.join(",")).join("\n");
-    const blob = new Blob([csv], { type: "text/csv;charset=utf-8;" });
-    const url  = URL.createObjectURL(blob);
-    const a    = document.createElement("a");
-    a.href = url;
-    a.download = `scores_employes_${new Date().toISOString().split("T")[0]}.csv`;
+    const blob = new Blob([rows.map(r => r.join(",")).join("\n")], { type: "text/csv;charset=utf-8;" });
+    const a = Object.assign(document.createElement("a"), { href: URL.createObjectURL(blob), download: `scores_${new Date().toISOString().split("T")[0]}.csv` });
     a.click();
-    URL.revokeObjectURL(url);
   };
 
-  // ── Loading / error ────────────────────────────────────────────────────────
-
-  if (loading) return (
-    <div className="flex h-[50vh] items-center justify-center">
-      <div className="text-center space-y-3">
-        <Loader2 className="animate-spin mx-auto text-indigo-600" size={28} />
-        <p className="text-slate-500 text-sm animate-pulse">Chargement des données RH…</p>
+  // ── Loading ────────────────────────────────────────────────────────────────
+  if (loading) {
+    return (
+      <div className="flex h-[60vh] flex-col items-center justify-center gap-3">
+        <div className="w-12 h-12 rounded-2xl bg-gradient-to-br from-teal-400 to-cyan-500 flex items-center justify-center shadow-lg shadow-teal-200">
+          <Loader2 className="animate-spin text-white" size={22}/>
+        </div>
+        <p className="text-sm text-slate-400 font-medium">Chargement des données RH…</p>
       </div>
-    </div>
-  );
+    );
+  }
 
-  if (error) return (
-    <div className="mx-auto max-w-xl mt-10 rounded-2xl bg-red-50 border border-red-100 p-8 text-center">
-      <XCircle className="mx-auto mb-3 text-red-400" size={32} />
-      <p className="text-red-700 font-medium">{error}</p>
-      <button onClick={() => window.location.reload()}
-        className="mt-4 px-4 py-2 rounded-lg bg-red-600 text-white text-sm hover:bg-red-700 transition">
-        Réessayer
-      </button>
-    </div>
-  );
+  // ── Error ──────────────────────────────────────────────────────────────────
+  if (error) {
+    return (
+      <div className="mx-auto max-w-md mt-16 rounded-3xl bg-red-50 border border-red-100 p-8 text-center shadow-sm">
+        <div className="w-12 h-12 rounded-2xl bg-red-100 flex items-center justify-center mx-auto mb-4">
+          <XCircle className="text-red-400" size={22}/>
+        </div>
+        <p className="text-red-700 font-semibold text-sm mb-4">{error}</p>
+        <button onClick={() => window.location.reload()}
+          className="px-5 py-2 bg-red-500 text-white rounded-xl text-sm font-semibold">
+          Réessayer
+        </button>
+      </div>
+    );
+  }
 
   // ── Render ─────────────────────────────────────────────────────────────────
-
   return (
-    <div className="min-h-screen bg-gray-50/50 p-6 md:p-8 space-y-6">
+    <div className="max-w-6xl mx-auto pb-24 md:pb-16 space-y-5">
 
-      {/* ── Header ── */}
-      <div className="flex flex-col md:flex-row md:items-end justify-between gap-4">
-        <div>
-          <h1 className="text-3xl font-extrabold tracking-tight text-slate-900">Tableau de bord RH — Scores</h1>
-          <p className="mt-1 text-slate-500 text-sm">Vue d'ensemble des performances et scores de tous les employés.</p>
-        </div>
-        <div className="flex items-center gap-2">
-          {/* Tab toggle */}
-          <div className="flex gap-1 bg-white border border-slate-200 rounded-xl p-1 shadow-sm">
-            <button onClick={() => setActiveTab("table")}
-              className={`text-xs font-semibold px-3 py-1.5 rounded-lg transition-all ${activeTab === "table" ? "bg-indigo-600 text-white shadow" : "text-slate-500 hover:text-slate-700"}`}>
-              Tableau
+      {/* ── Page Header ── */}
+      <div className="relative overflow-hidden rounded-3xl bg-gradient-to-br from-teal-500 via-cyan-500 to-sky-500 p-6 md:p-8 shadow-xl shadow-teal-200/50">
+        <div className="absolute top-0 right-0 w-48 h-48 rounded-full bg-white/10 -translate-y-1/2 translate-x-1/4"/>
+        <div className="absolute bottom-0 left-1/3 w-32 h-32 rounded-full bg-white/5 translate-y-1/2"/>
+        <div className="relative flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+          <div>
+            <div className="flex items-center gap-2 mb-2">
+              <Sparkles size={16} className="text-cyan-200"/>
+              <span className="text-[11px] font-bold uppercase tracking-widest text-cyan-200">RH Analytics</span>
+            </div>
+            <h1 className="text-2xl md:text-3xl font-black text-white tracking-tight">
+              Scores & Performances RH
+            </h1>
+            <p className="text-sm text-teal-100 mt-1.5">Vue d'ensemble de tous les employés</p>
+          </div>
+          <div className="flex items-center gap-2 self-start sm:self-auto">
+            <button onClick={handleExport}
+              className="flex items-center gap-2 px-4 py-2.5 bg-white/20 hover:bg-white/30 backdrop-blur-sm text-white rounded-xl text-sm font-semibold transition-all border border-white/20">
+              <Download size={14}/> <span className="hidden sm:inline">Exporter</span>
             </button>
-            <button onClick={() => setActiveTab("charts")}
-              className={`text-xs font-semibold px-3 py-1.5 rounded-lg transition-all ${activeTab === "charts" ? "bg-indigo-600 text-white shadow" : "text-slate-500 hover:text-slate-700"}`}>
-              Graphiques
+            <button onClick={() => window.location.reload()}
+              className="flex items-center gap-2 px-4 py-2.5 bg-white/20 hover:bg-white/30 backdrop-blur-sm text-white rounded-xl text-sm font-semibold transition-all border border-white/20">
+              <RefreshCw size={14}/>
             </button>
           </div>
-          <button onClick={handleExport}
-            className="flex items-center gap-2 px-4 py-2.5 rounded-xl bg-indigo-600 text-white text-sm font-medium hover:bg-indigo-700 transition shadow-sm">
-            <Download size={15} /> Exporter CSV
-          </button>
         </div>
       </div>
 
       {/* ── KPIs ── */}
-      <div className="grid grid-cols-2 md:grid-cols-5 gap-3">
-        <StatCard label="Total employés"   value={stats.total}        icon={<Users size={16} className="text-indigo-600"/>}        accent="bg-indigo-50" sub={`${stats.withProfile} avec profil RH`}/>
-        <StatCard label="Score moyen"      value={stats.avgScore}     icon={<BarChart2 size={16} className="text-blue-600"/>}       accent="bg-blue-50"   sub="/ 120 points"/>
-        <StatCard label="Top performers"   value={stats.topGrade}     icon={<Medal size={16} className="text-amber-500"/>}          accent="bg-amber-50"  sub="Grade A+ ou A"/>
-        <StatCard label="À risque"         value={stats.atRisk}       icon={<AlertCircle size={16} className="text-red-500"/>}      accent="bg-red-50"    sub="Grade D ou F"/>
-        <StatCard label="Projets en retard" value={stats.lateProjects} icon={<Clock size={16} className="text-orange-500"/>}        accent="bg-orange-50" sub="Date dépassée, non terminé"/>
+      <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-3">
+        <KpiCard label="Employés"          value={stats.total}    sub={`${stats.withProf} profils RH`} accent icon={<Users size={15}/>}/>
+        <KpiCard label="Score moyen"       value={stats.avgScore} sub="/ 120 points"    icon={<BarChart2 size={14}/>}/>
+        <KpiCard label="Top performers"    value={stats.top}      sub="Grade A+ ou A"   icon={<Medal size={14}/>}/>
+        <KpiCard label="À risque"          value={stats.risk}     sub="Grade D ou F"    icon={<AlertCircle size={14}/>}/>
+        <KpiCard label="Projets en retard" value={stats.late}     sub="Date dépassée"   icon={<Clock size={14}/>}/>
       </div>
 
-      {/* ── Charts tab ── */}
-      {activeTab === "charts" && (
-        <ChartsSection usersWithProfiles={usersWithProfiles} projects={projects} />
-      )}
+      {/* ── View tabs (desktop) ── */}
+      <div className="hidden md:flex items-center justify-between">
+        <div className="flex gap-2 p-1 bg-teal-50/80 border border-teal-100 rounded-2xl">
+          {(["cards","table","charts"] as ViewMode[]).map(v => (
+            <button key={v} onClick={() => setView(v)}
+              className={`flex items-center gap-2 px-4 py-2 rounded-xl text-[12px] font-semibold transition-all duration-200 ${
+                view === v
+                  ? "bg-gradient-to-br from-teal-600 to-cyan-500 text-white shadow-md shadow-teal-200/50"
+                  : "text-slate-500 hover:text-teal-700"
+              }`}>
+              {v === "cards" ? <><Users size={13}/> Cartes</> : v === "table" ? <><BarChart2 size={13}/> Tableau</> : <><Activity size={13}/> Graphiques</>}
+            </button>
+          ))}
+        </div>
+        <span className="text-[11px] text-slate-400 font-medium">{filtered.length} résultat{filtered.length !== 1 ? "s" : ""}</span>
+      </div>
 
-      {/* ── Table tab ── */}
-      {activeTab === "table" && (
-        <>
-          {/* Filters */}
-          <div className="bg-white rounded-2xl border border-slate-200 p-4 shadow-sm">
-            <div className="grid grid-cols-1 md:grid-cols-12 gap-3 items-center">
-              <div className="md:col-span-4 relative">
-                <Search size={15} className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400"/>
-                <input type="text" placeholder="Rechercher un employé…" value={searchTerm}
-                  onChange={e => setSearchTerm(e.target.value)}
-                  className="w-full pl-9 pr-4 py-2.5 rounded-xl border border-slate-200 bg-slate-50 text-sm outline-none focus:border-indigo-500 focus:ring-2 focus:ring-indigo-500/20 transition"/>
-              </div>
-              <div className="md:col-span-2 flex items-center gap-2 px-3 py-2.5 rounded-xl border border-slate-200 bg-white">
-                <Award size={14} className="text-slate-400 shrink-0"/>
-                <select value={selectedGrade} onChange={e => setSelectedGrade(e.target.value)}
-                  className="bg-transparent text-sm text-slate-700 outline-none w-full cursor-pointer">
-                  <option value="ALL">Tous les grades</option>
-                  {grades.slice(1).map(g => <option key={g} value={g}>Grade {g}</option>)}
-                </select>
-              </div>
-              <div className="md:col-span-2 flex items-center gap-2 px-3 py-2.5 rounded-xl border border-slate-200 bg-white">
-                <Activity size={14} className="text-slate-400 shrink-0"/>
-                <select value={selectedStatus} onChange={e => setSelectedStatus(e.target.value)}
-                  className="bg-transparent text-sm text-slate-700 outline-none w-full cursor-pointer">
-                  <option value="ALL">Tous les statuts</option>
-                  {Object.entries(STATUS_CONFIG).map(([k, v]) => <option key={k} value={k}>{v.label}</option>)}
-                </select>
-              </div>
-              <div className="md:col-span-2 flex items-center gap-2 px-3 py-2.5 rounded-xl border border-slate-200 bg-white">
-                <Filter size={14} className="text-slate-400 shrink-0"/>
-                <select value={selectedRole} onChange={e => setSelectedRole(e.target.value)}
-                  className="bg-transparent text-sm text-slate-700 outline-none w-full cursor-pointer">
-                  <option value="ALL">Tous les rôles</option>
-                  {roles.slice(1).map(r => <option key={r} value={r}>{ROLE_LABELS[r as UserRole] ?? r}</option>)}
-                </select>
-              </div>
-              <div className="md:col-span-2 flex items-center justify-end gap-2">
-                <label className="flex items-center gap-2 cursor-pointer select-none">
-                  <div onClick={() => setShowNoProfile(v => !v)}
-                    className={`relative w-9 h-5 rounded-full transition-colors ${showNoProfile ? "bg-indigo-500" : "bg-slate-200"}`}>
-                    <div className={`absolute top-0.5 w-4 h-4 rounded-full bg-white shadow transition-transform ${showNoProfile ? "translate-x-4" : "translate-x-0.5"}`}/>
-                  </div>
-                  <span className="text-xs text-slate-500 whitespace-nowrap">Sans profil</span>
-                </label>
-                {(searchTerm || selectedGrade !== "ALL" || selectedStatus !== "ALL" || selectedRole !== "ALL") && (
-                  <button onClick={() => { setSearchTerm(""); setSelectedGrade("ALL"); setSelectedStatus("ALL"); setSelectedRole("ALL"); }}
-                    className="text-xs text-red-500 hover:text-red-700 underline underline-offset-2">
-                    Réinitialiser
-                  </button>
-                )}
-              </div>
+      {/* ── Filters ── */}
+      <div className="bg-white rounded-2xl border border-slate-100 shadow-sm p-4 space-y-3">
+        {/* Search */}
+        <div className="relative">
+          <Search size={15} className="absolute left-3 top-1/2 -translate-y-1/2 text-teal-400"/>
+          <input
+            type="text" value={search} onChange={e => setSearch(e.target.value)}
+            placeholder="Rechercher un employé…"
+            className="w-full pl-9 pr-4 py-2.5 bg-teal-50/50 border border-teal-100 rounded-xl text-[13px] text-slate-700 placeholder:text-slate-300 outline-none focus:ring-2 focus:ring-teal-300 focus:border-teal-300"
+          />
+        </div>
+        {/* Selects */}
+        <div className="flex flex-wrap gap-2">
+          <StyledSelect value={grade} onChange={setGrade} icon={<Award size={13}/>}
+            options={[{ value:"ALL", label:"Tous grades" }, ...grades.slice(1).map(g => ({ value:g, label:`Grade ${g}` }))]}/>
+          <StyledSelect value={status} onChange={setStatus} icon={<Activity size={13}/>}
+            options={[{ value:"ALL", label:"Tous statuts" }, ...Object.entries(STATUS_CFG).map(([k,v]) => ({ value:k, label:v.label }))]}/>
+          <StyledSelect value={role} onChange={setRole} icon={<Filter size={13}/>}
+            options={[{ value:"ALL", label:"Tous rôles" }, ...roles.slice(1).map(r => ({ value:r, label: ROLE_LABELS[r as UserRole] ?? r }))]}/>
+        </div>
+        {/* Actions row */}
+        <div className="flex flex-wrap items-center gap-3">
+          <label className="flex items-center gap-2 cursor-pointer select-none">
+            <div className="relative w-9 h-5" onClick={() => setShowNoProf(v => !v)}>
+              <div className={`w-full h-full rounded-full transition-colors ${showNoProf ? "bg-teal-500" : "bg-slate-200"}`}/>
+              <div className={`absolute top-0.5 w-4 h-4 rounded-full bg-white shadow transition-transform ${showNoProf ? "translate-x-4" : "translate-x-0.5"}`}/>
             </div>
-          </div>
-
-          {/* Table */}
-          <div className="overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-sm">
-            <div className="overflow-x-auto">
-              <table className="w-full text-sm text-left">
-                <thead className="bg-slate-50/70 border-b border-slate-200">
-                  <tr>
-                    <th className="px-4 py-4 w-10 text-center text-xs font-semibold text-slate-500">#</th>
-                    <th className="px-4 py-4 font-semibold text-slate-600"><div className="flex items-center gap-1">Employé <SortButton field="fullname" current={sortField} dir={sortDir} onClick={handleSort}/></div></th>
-                    <th className="px-4 py-4 font-semibold text-slate-600"><div className="flex items-center gap-1">Grade <SortButton field="grade" current={sortField} dir={sortDir} onClick={handleSort}/></div></th>
-                    <th className="px-4 py-4 font-semibold text-slate-600 min-w-[160px]"><div className="flex items-center gap-1">Score global <SortButton field="globalScore" current={sortField} dir={sortDir} onClick={handleSort}/></div></th>
-                    <th className="px-4 py-4 font-semibold text-slate-600"><div className="flex items-center gap-1">Tâches <SortButton field="totalTasksDone" current={sortField} dir={sortDir} onClick={handleSort}/></div></th>
-                    <th className="px-4 py-4 font-semibold text-slate-600 min-w-[110px]"><div className="flex items-center gap-1">À temps <SortButton field="onTimeRate" current={sortField} dir={sortDir} onClick={handleSort}/></div></th>
-                    <th className="px-4 py-4 font-semibold text-slate-600 min-w-[110px]"><div className="flex items-center gap-1">Assiduité <SortButton field="attendanceRate" current={sortField} dir={sortDir} onClick={handleSort}/></div></th>
-                    <th className="px-4 py-4 font-semibold text-slate-600"><div className="flex items-center gap-1">Note RH <SortButton field="performanceRating" current={sortField} dir={sortDir} onClick={handleSort}/></div></th>
-                    <th className="px-4 py-4 font-semibold text-slate-600">Évol.</th>
-                    <th className="px-4 py-4 font-semibold text-slate-600 text-right">Actions</th>
-                  </tr>
-                </thead>
-                <tbody className="divide-y divide-slate-100">
-                  {filtered.map((user, idx) => {
-                    const p          = user.profile;
-                    const grade      = p?.grade ?? null;
-                    const gradeCfg   = grade ? GRADE_CONFIG[grade] : null;
-                    const statusCfg  = p ? STATUS_CONFIG[p.employmentStatus] ?? STATUS_CONFIG[EmploymentStatus.ACTIVE] : null;
-                    const evolution  = p?.scoreEvolution ?? null;
-                    const onTimePct  = p?.onTimeRate !== undefined ? (Number(p.onTimeRate) <= 1 ? Number(p.onTimeRate) * 100 : Number(p.onTimeRate)) : null;
-                    const attendance = p?.attendanceRate !== undefined ? (Number(p.attendanceRate) <= 1 ? Number(p.attendanceRate) * 100 : Number(p.attendanceRate)) : null;
-
-                    // User's projects that are late
-                    const userLateProjects = projects.filter(proj =>
-                      isProjectLate(proj) &&
-                      proj.assignedTo?.some(m => m.id === user.id)
-                    );
-
-                    return (
-                      <tr key={user.id} className="group hover:bg-slate-50/70 transition-colors duration-150">
-                        <td className="px-4 py-3 text-center">
-                          {p ? (
-                            <div className="flex items-center justify-center">
-                              {getMedalIcon(idx + 1) ?? <span className="text-xs text-slate-400 font-medium">{idx + 1}</span>}
-                            </div>
-                          ) : <span className="text-slate-300 text-xs">—</span>}
-                        </td>
-
-                        <td className="px-4 py-3">
-                          <div className="flex items-center gap-3">
-                            <div className="h-9 w-9 shrink-0 rounded-xl bg-gradient-to-br from-indigo-500 to-purple-600 text-white flex items-center justify-center font-bold text-xs shadow-sm ring-2 ring-white">
-                              {user.fullname.substring(0, 2).toUpperCase()}
-                            </div>
-                            <div>
-                              <p className="font-semibold text-slate-900 text-sm group-hover:text-indigo-600 transition-colors leading-tight">{user.fullname}</p>
-                              <p className="text-xs text-slate-400 leading-tight mt-0.5">{user.email}</p>
-                              <div className="flex items-center gap-1.5 mt-1 flex-wrap">
-                                {user.company && (
-                                  <span className="flex items-center gap-0.5 text-[10px] text-slate-400">
-                                    <Building2 size={9}/> {user.company.name}
-                                  </span>
-                                )}
-                                {statusCfg && (
-                                  <span className={`text-[10px] font-medium px-1.5 py-0.5 rounded-md border ${statusCfg.color} ${statusCfg.bg}`}>
-                                    {statusCfg.label}
-                                  </span>
-                                )}
-                                {userLateProjects.length > 0 && (
-                                  <span className="flex items-center gap-0.5 text-[10px] font-semibold text-red-600 bg-red-50 border border-red-200 px-1.5 py-0.5 rounded-md">
-                                    <Clock size={9}/> {userLateProjects.length} projet{userLateProjects.length > 1 ? "s" : ""} en retard
-                                  </span>
-                                )}
-                              </div>
-                            </div>
-                          </div>
-                        </td>
-
-                        <td className="px-4 py-3">
-                          {gradeCfg && grade ? (
-                            <span className={`inline-flex items-center px-2.5 py-1 rounded-lg text-sm font-bold border ${gradeCfg.color} ${gradeCfg.bg} ${gradeCfg.border}`}>
-                              {grade}
-                            </span>
-                          ) : <span className="text-slate-300 text-xs">—</span>}
-                        </td>
-
-                        <td className="px-4 py-3 min-w-[160px]">
-                          {p ? (
-                            <div className="space-y-1.5">
-                              <div className="flex items-center justify-between">
-                                <span className="text-sm font-bold text-slate-900">{Number(p.globalScore).toFixed(1)}</span>
-                                <span className="text-[10px] text-slate-400">/ 120</span>
-                              </div>
-                              <ScoreBar value={scoreToPercent(p.globalScore)} colorClass={gradeCfg?.bar ?? "bg-slate-300"}/>
-                            </div>
-                          ) : <span className="text-xs text-slate-300 italic">Pas de profil</span>}
-                        </td>
-
-                        <td className="px-4 py-3">
-                          {p ? (
-                            <div className="flex items-center gap-1.5">
-                              <Target size={13} className="text-violet-500"/>
-                              <span className="font-semibold text-slate-800">{p.totalTasksDone}</span>
-                            </div>
-                          ) : <span className="text-slate-300 text-xs">—</span>}
-                        </td>
-
-                        <td className="px-4 py-3">
-                          {onTimePct !== null ? (
-                            <div className="space-y-1">
-                              <span className={`text-sm font-semibold ${onTimePct >= 80 ? "text-emerald-700" : onTimePct >= 60 ? "text-amber-700" : "text-red-600"}`}>
-                                {onTimePct.toFixed(0)}%
-                              </span>
-                              <ScoreBar value={onTimePct} colorClass={onTimePct >= 80 ? "bg-emerald-400" : onTimePct >= 60 ? "bg-amber-400" : "bg-red-400"}/>
-                            </div>
-                          ) : <span className="text-slate-300 text-xs">—</span>}
-                        </td>
-
-                        <td className="px-4 py-3">
-                          {attendance !== null ? (
-                            <div className="space-y-1">
-                              <span className={`text-sm font-semibold ${attendance >= 90 ? "text-emerald-700" : attendance >= 70 ? "text-amber-700" : "text-red-600"}`}>
-                                {attendance.toFixed(0)}%
-                              </span>
-                              <ScoreBar value={attendance} colorClass={attendance >= 90 ? "bg-emerald-400" : attendance >= 70 ? "bg-amber-400" : "bg-red-400"}/>
-                            </div>
-                          ) : <span className="text-slate-300 text-xs">—</span>}
-                        </td>
-
-                        <td className="px-4 py-3">
-                          {p ? (
-                            <div className="flex items-center gap-1">
-                              <Star size={13} className="text-amber-400 fill-amber-400"/>
-                              <span className="text-sm font-semibold text-slate-800">{Number(p.performanceRating).toFixed(1)}</span>
-                              <span className="text-[10px] text-slate-400">/5</span>
-                            </div>
-                          ) : <span className="text-slate-300 text-xs">—</span>}
-                        </td>
-
-                        <td className="px-4 py-3">
-                          {evolution !== null ? (
-                            <div className={`flex items-center gap-1 text-xs font-semibold ${evolution > 0 ? "text-emerald-600" : evolution < 0 ? "text-red-500" : "text-slate-400"}`}>
-                              {evolution > 0 ? <TrendingUp size={13}/> : evolution < 0 ? <TrendingDown size={13}/> : <Minus size={13}/>}
-                              {evolution > 0 ? "+" : ""}{Number(evolution).toFixed(1)}
-                            </div>
-                          ) : <span className="text-slate-300 text-xs">—</span>}
-                        </td>
-
-                        <td className="px-4 py-3 text-right">
-                          <div className="flex justify-end gap-2 opacity-0 group-hover:opacity-100 transition-opacity">
-                            <button onClick={() => router.push(`/Dashboard/users/${user.id}/details`)}
-                              title="Voir le profil complet"
-                              className="p-2 rounded-lg bg-indigo-50 border border-indigo-200 text-indigo-600 hover:bg-indigo-100 hover:border-indigo-300 transition-all">
-                              <Eye size={15}/>
-                            </button>
-                          </div>
-                        </td>
-                      </tr>
-                    );
-                  })}
-                </tbody>
-              </table>
-            </div>
-
-            <div className="px-6 py-3 border-t border-slate-100 bg-slate-50/50 flex items-center justify-between text-xs text-slate-500">
-              <span>{filtered.length} résultat{filtered.length !== 1 ? "s" : ""} sur {usersWithProfiles.length} employés</span>
-              <span>{filtered.filter(u => u.profile).length} avec profil RH</span>
-            </div>
-          </div>
-
-          {filtered.length === 0 && (
-            <div className="rounded-2xl border border-slate-200 bg-white p-12 text-center">
-              <Users className="mx-auto h-12 w-12 text-slate-300 mb-4"/>
-              <h3 className="text-lg font-semibold text-slate-900">Aucun résultat</h3>
-              <p className="text-sm text-slate-500 mt-1">Ajustez vos filtres pour afficher des employés.</p>
-            </div>
+            <span className="text-[12px] text-slate-500 font-medium">Sans profil</span>
+          </label>
+          {hasFilters && (
+            <button onClick={() => { setSearch(""); setGrade("ALL"); setStatus("ALL"); setRole("ALL"); }}
+              className="text-[12px] text-rose-500 hover:text-rose-700 font-semibold px-2 py-1 rounded-lg hover:bg-rose-50 transition-colors">
+              ✕ Réinitialiser
+            </button>
           )}
-        </>
+        </div>
+      </div>
+
+      {/* ── CARDS VIEW ── */}
+      {view === "cards" && (
+        filtered.length === 0
+          ? (
+            <div className="bg-white rounded-3xl border border-slate-100 p-16 text-center">
+              <p className="text-4xl mb-3">🔍</p>
+              <p className="font-bold text-slate-700">Aucun résultat</p>
+              <p className="text-sm text-slate-400 mt-1">Ajustez vos filtres.</p>
+            </div>
+          ) : (
+            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
+              {filtered.map((u, idx) => {
+                const p = u.profile;
+                const g = p?.grade ?? null;
+                const cfg = g ? GRADE_CFG[g] : null;
+                const sc = p ? scoreToPercent(Number(p.globalScore)) : 0;
+                const onT = p?.onTimeRate !== undefined ? (Number(p.onTimeRate) <= 1 ? Number(p.onTimeRate) * 100 : Number(p.onTimeRate)) : null;
+                const att = p?.attendanceRate !== undefined ? (Number(p.attendanceRate) <= 1 ? Number(p.attendanceRate) * 100 : Number(p.attendanceRate)) : null;
+                const statusCfg = p ? STATUS_CFG[p.employmentStatus] : null;
+                const latePr = projects.filter(pr => isLate(pr) && pr.assignedTo?.some(m => m.id === u.id));
+                const medal = getMedal(idx + 1);
+                const evo = p?.scoreEvolution ?? null;
+
+                return (
+                  <div key={u.id}
+                    onClick={() => router.push(`/Dashboard/users/${u.id}/details`)}
+                    className="relative bg-white rounded-3xl border border-slate-100 shadow-sm overflow-hidden cursor-pointer transition-all duration-200 hover:-translate-y-1 hover:shadow-md group">
+
+                    {/* Top accent bar */}
+                    {cfg && <div className="absolute top-0 left-0 right-0 h-0.5" style={{ background: cfg.bar }}/>}
+
+                    <div className="p-5">
+                      {/* Header row */}
+                      <div className="flex items-start gap-3 mb-4">
+                        {/* Avatar */}
+                        <div className="w-11 h-11 rounded-2xl flex-shrink-0 flex items-center justify-center text-[13px] font-black text-white bg-gradient-to-br from-teal-400 to-cyan-500 shadow-sm">
+                          {initials(u.fullname)}
+                        </div>
+                        {/* Info */}
+                        <div className="flex-1 min-w-0">
+                          <div className="flex items-center gap-1.5">
+                            {medal && <span className="text-sm">{medal}</span>}
+                            <span className="text-[14px] font-bold text-slate-800 truncate">{u.fullname}</span>
+                          </div>
+                          <p className="text-[11px] text-slate-400 truncate mt-0.5">{u.email}</p>
+                          {u.company && (
+                            <div className="flex items-center gap-1 mt-1 text-[10.5px] text-slate-400">
+                              <Building2 size={10}/>{u.company.name}
+                            </div>
+                          )}
+                          {statusCfg && (
+                            <span className={`inline-flex items-center gap-1 mt-1.5 text-[10.5px] font-semibold px-2 py-0.5 rounded-full border ${statusCfg.twBg} ${statusCfg.twText} ${statusCfg.twBorder}`}>
+                              <span className="w-1.5 h-1.5 rounded-full flex-shrink-0" style={{ background: statusCfg.dot }}/>
+                              {statusCfg.label}
+                            </span>
+                          )}
+                        </div>
+                        {/* Grade */}
+                        <div className="flex flex-col items-center gap-1 flex-shrink-0">
+                          {cfg && g
+                            ? <div className="w-10 h-10 rounded-xl flex items-center justify-center text-[14px] font-black border-2"
+                                style={{ background: cfg.bg, color: cfg.color, borderColor: cfg.border }}>{g}</div>
+                            : <div className="w-10 h-10 rounded-xl flex items-center justify-center text-[14px] font-black border-2 bg-slate-50 text-slate-300 border-slate-100">—</div>
+                          }
+                          <span className="text-[9.5px] text-slate-300 font-mono">#{idx+1}</span>
+                        </div>
+                      </div>
+
+                      {/* Score */}
+                      {p ? (
+                        <>
+                          <div className="flex items-baseline justify-between mb-1.5">
+                            <div>
+                              <span className="text-[22px] font-black font-mono" style={{ color: cfg?.color ?? "#0f172a" }}>
+                                {Number(p.globalScore).toFixed(1)}
+                              </span>
+                              <span className="text-[11px] text-slate-300 ml-1">/ 120</span>
+                            </div>
+                            {evo !== null && (
+                              <span className={`flex items-center gap-1 text-[12px] font-bold ${Number(evo) > 0 ? "text-teal-600" : Number(evo) < 0 ? "text-red-500" : "text-slate-400"}`}>
+                                {Number(evo) > 0 ? <TrendingUp size={13}/> : Number(evo) < 0 ? <TrendingDown size={13}/> : <Minus size={13}/>}
+                                {Number(evo) > 0 ? "+" : ""}{Number(evo).toFixed(1)}
+                              </span>
+                            )}
+                          </div>
+                          <ScoreBar value={sc} barStyle={cfg?.bar ?? "linear-gradient(90deg,#14b8a6,#06b6d4)"}/>
+
+                          {/* Mini metrics */}
+                          <div className="grid grid-cols-3 gap-2 mt-3">
+                            {[
+                              { label:"Tâches",   value: p.totalTasksDone },
+                              { label:"À temps",  value: onT !== null ? `${onT.toFixed(0)}%` : "—" },
+                              { label:"Assiduité",value: att !== null ? `${att.toFixed(0)}%` : "—" },
+                            ].map(m => (
+                              <div key={m.label} className="bg-teal-50/60 border border-teal-50 rounded-xl p-2 text-center">
+                                <p className="text-[9px] font-bold uppercase tracking-wide text-teal-600">{m.label}</p>
+                                <p className="text-[13px] font-bold text-slate-700 mt-0.5">{m.value}</p>
+                              </div>
+                            ))}
+                          </div>
+                        </>
+                      ) : (
+                        <p className="text-[12px] text-slate-300 italic py-2">Pas de profil RH</p>
+                      )}
+
+                      {latePr.length > 0 && (
+                        <div className="flex items-center gap-1.5 mt-3 bg-rose-50 border border-rose-100 rounded-xl px-3 py-2 text-[10.5px] font-semibold text-rose-500">
+                          <Clock size={11}/>{latePr.length} projet{latePr.length > 1 ? "s" : ""} en retard
+                        </div>
+                      )}
+
+                      <div className="flex justify-end mt-3">
+                        <span className="text-[11px] text-teal-600 font-semibold flex items-center gap-1 group-hover:gap-2 transition-all">
+                          Voir le profil <ChevronRight size={13}/>
+                        </span>
+                      </div>
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
+          )
       )}
+
+      {/* ── TABLE VIEW ── */}
+      {view === "table" && (
+        filtered.length === 0
+          ? (
+            <div className="bg-white rounded-3xl border border-slate-100 p-16 text-center">
+              <p className="text-4xl mb-3">🔍</p>
+              <p className="font-bold text-slate-700">Aucun résultat</p>
+              <p className="text-sm text-slate-400 mt-1">Ajustez vos filtres pour afficher des employés.</p>
+            </div>
+          ) : (
+            <div className="bg-white rounded-3xl border border-slate-100 shadow-sm overflow-hidden">
+              <div className="overflow-x-auto">
+                <table className="w-full text-left border-collapse">
+                  <thead>
+                    <tr className="bg-gradient-to-r from-teal-50/80 to-cyan-50/50">
+                      {[
+                        { label:"#", field: null, w:"w-10 text-center" },
+                        { label:"Employé", field:"fullname" as SortField },
+                        { label:"Grade", field:"grade" as SortField },
+                        { label:"Score", field:"globalScore" as SortField, w:"min-w-[160px]" },
+                        { label:"Tâches", field:"totalTasksDone" as SortField },
+                        { label:"À temps", field:"onTimeRate" as SortField, w:"min-w-[100px]" },
+                        { label:"Assiduité", field:"attendanceRate" as SortField, w:"min-w-[100px]" },
+                        { label:"Note RH", field:"performanceRating" as SortField },
+                        { label:"Évol.", field: null },
+                        { label:"", field: null, w:"text-right" },
+                      ].map((col, i) => (
+                        <th key={i} className={`px-4 py-3 text-[11px] font-bold uppercase tracking-wider text-teal-700 border-b border-teal-100 whitespace-nowrap ${col.w ?? ""}`}>
+                          {col.label}
+                          {col.field && (
+                            <button onClick={() => handleSort(col.field!)} className="ml-1 text-teal-300 hover:text-teal-600 inline-flex align-middle">
+                              {sortField === col.field
+                                ? sortDir === "asc" ? "↑" : "↓"
+                                : "↕"}
+                            </button>
+                          )}
+                        </th>
+                      ))}
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {filtered.map((u, idx) => {
+                      const p = u.profile;
+                      const g = p?.grade ?? null;
+                      const cfg = g ? GRADE_CFG[g] : null;
+                      const sc = p ? scoreToPercent(Number(p.globalScore)) : 0;
+                      const onT = p?.onTimeRate !== undefined ? (Number(p.onTimeRate) <= 1 ? Number(p.onTimeRate) * 100 : Number(p.onTimeRate)) : null;
+                      const att = p?.attendanceRate !== undefined ? (Number(p.attendanceRate) <= 1 ? Number(p.attendanceRate) * 100 : Number(p.attendanceRate)) : null;
+                      const statusCfg = p ? STATUS_CFG[p.employmentStatus] : null;
+                      const evo = p?.scoreEvolution ?? null;
+                      const latePr = projects.filter(pr => isLate(pr) && pr.assignedTo?.some(m => m.id === u.id));
+                      const medal = getMedal(idx + 1);
+
+                      return (
+                        <tr key={u.id} className="border-b border-slate-50 hover:bg-teal-50/30 transition-colors">
+                          <td className="px-4 py-3 text-center text-sm text-slate-400">
+                            {medal ? <span>{medal}</span> : <span className="font-mono text-[11px] text-slate-300">{idx+1}</span>}
+                          </td>
+                          <td className="px-4 py-3">
+                            <div className="flex items-center gap-3">
+                              <div className="w-9 h-9 rounded-xl flex-shrink-0 flex items-center justify-center text-[11px] font-black text-white bg-gradient-to-br from-teal-400 to-cyan-500">
+                                {initials(u.fullname)}
+                              </div>
+                              <div>
+                                <p className="text-[13px] font-bold text-slate-800">{u.fullname}</p>
+                                <p className="text-[11px] text-slate-400">{u.email}</p>
+                                <div className="flex flex-wrap gap-1.5 mt-1">
+                                  {statusCfg && (
+                                    <span className={`inline-flex items-center gap-1 text-[10px] font-semibold px-1.5 py-0.5 rounded-full border ${statusCfg.twBg} ${statusCfg.twText} ${statusCfg.twBorder}`}>
+                                      <span className="w-1 h-1 rounded-full" style={{ background: statusCfg.dot }}/>{statusCfg.label}
+                                    </span>
+                                  )}
+                                  {latePr.length > 0 && (
+                                    <span className="inline-flex items-center gap-1 text-[10px] font-semibold px-1.5 py-0.5 rounded-full bg-rose-50 text-rose-500 border border-rose-100">
+                                      <Clock size={9}/>{latePr.length} retard{latePr.length > 1 ? "s" : ""}
+                                    </span>
+                                  )}
+                                </div>
+                              </div>
+                            </div>
+                          </td>
+                          <td className="px-4 py-3">
+                            {cfg && g
+                              ? <span className="inline-flex items-center justify-center w-8 h-8 rounded-lg text-[13px] font-black border-2"
+                                  style={{ background: cfg.bg, color: cfg.color, borderColor: cfg.border }}>{g}</span>
+                              : <span className="text-slate-300 text-xs">—</span>}
+                          </td>
+                          <td className="px-4 py-3 min-w-[160px]">
+                            {p ? (
+                              <div className="space-y-1">
+                                <div className="flex justify-between items-baseline">
+                                  <span className="text-[14px] font-black font-mono text-slate-800">{Number(p.globalScore).toFixed(1)}</span>
+                                  <span className="text-[10px] text-slate-300">/ 120</span>
+                                </div>
+                                <ScoreBar value={sc} barStyle={cfg?.bar ?? "linear-gradient(90deg,#14b8a6,#06b6d4)"}/>
+                              </div>
+                            ) : <span className="text-slate-300 text-xs italic">Pas de profil</span>}
+                          </td>
+                          <td className="px-4 py-3">
+                            {p ? <span className="font-bold text-slate-700 font-mono text-[13px]">{p.totalTasksDone}</span> : <span className="text-slate-300">—</span>}
+                          </td>
+                          <td className="px-4 py-3">
+                            {onT !== null ? (
+                              <div className="space-y-1">
+                                <FmtPct v={onT}/>
+                                <ScoreBar value={onT} barStyle={onT >= 80 ? "linear-gradient(90deg,#0d9488,#14b8a6)" : onT >= 60 ? "linear-gradient(90deg,#d97706,#f59e0b)" : "linear-gradient(90deg,#dc2626,#ef4444)"}/>
+                              </div>
+                            ) : <span className="text-slate-300">—</span>}
+                          </td>
+                          <td className="px-4 py-3">
+                            {att !== null ? (
+                              <div className="space-y-1">
+                                <FmtPct v={att}/>
+                                <ScoreBar value={att} barStyle={att >= 90 ? "linear-gradient(90deg,#0d9488,#14b8a6)" : att >= 70 ? "linear-gradient(90deg,#d97706,#f59e0b)" : "linear-gradient(90deg,#dc2626,#ef4444)"}/>
+                              </div>
+                            ) : <span className="text-slate-300">—</span>}
+                          </td>
+                          <td className="px-4 py-3">
+                            {p ? (
+                              <div className="flex items-center gap-1">
+                                <Star size={12} className="text-amber-400 fill-amber-400"/>
+                                <span className="font-bold text-[13px] text-slate-700">{Number(p.performanceRating).toFixed(1)}</span>
+                                <span className="text-[10px] text-slate-300">/5</span>
+                              </div>
+                            ) : <span className="text-slate-300">—</span>}
+                          </td>
+                          <td className="px-4 py-3">
+                            {evo !== null ? (
+                              <span className={`flex items-center gap-1 text-[12px] font-bold ${Number(evo) > 0 ? "text-teal-600" : Number(evo) < 0 ? "text-red-500" : "text-slate-400"}`}>
+                                {Number(evo) > 0 ? <TrendingUp size={13}/> : Number(evo) < 0 ? <TrendingDown size={13}/> : <Minus size={13}/>}
+                                {Number(evo) > 0 ? "+" : ""}{Number(evo).toFixed(1)}
+                              </span>
+                            ) : <span className="text-slate-300">—</span>}
+                          </td>
+                          <td className="px-4 py-3 text-right">
+                            <button onClick={() => router.push(`/Dashboard/users/${u.id}/details`)}
+                              className="w-8 h-8 rounded-xl flex items-center justify-center bg-teal-50 border border-teal-100 text-teal-600 hover:bg-teal-100 transition-colors">
+                              <Eye size={13}/>
+                            </button>
+                          </td>
+                        </tr>
+                      );
+                    })}
+                  </tbody>
+                </table>
+              </div>
+              <div className="px-4 py-3 bg-teal-50/30 border-t border-teal-50 flex items-center justify-between text-[11px] text-slate-400">
+                <span>{filtered.length} résultat{filtered.length !== 1 ? "s" : ""} sur {users.length}</span>
+                <span>{filtered.filter(u => u.profile).length} avec profil RH</span>
+              </div>
+            </div>
+          )
+      )}
+
+      {/* ── CHARTS VIEW ── */}
+      {view === "charts" && <ChartsSection users={users} projects={projects}/>}
+
+      {/* ── Mobile bottom nav ── */}
+      <div className="md:hidden fixed bottom-0 left-0 right-0 z-50 bg-white/95 backdrop-blur-xl border-t border-teal-100 flex px-3 pb-4 pt-2 gap-1 shadow-2xl shadow-teal-100/40">
+        {(["cards","table","charts"] as ViewMode[]).map(v => (
+          <button key={v} onClick={() => setView(v)}
+            className={`flex-1 flex flex-col items-center gap-1 py-2 px-2 rounded-2xl text-[10px] font-semibold transition-all duration-200 ${
+              view === v
+                ? "bg-gradient-to-br from-teal-50 to-cyan-50 text-teal-700 border border-teal-200"
+                : "text-slate-400"
+            }`}>
+            {v === "cards" ? <Users size={20}/> : v === "table" ? <BarChart2 size={20}/> : <Activity size={20}/>}
+            {v === "cards" ? "Cartes" : v === "table" ? "Tableau" : "Stats"}
+          </button>
+        ))}
+        <button onClick={handleExport}
+          className="flex-1 flex flex-col items-center gap-1 py-2 px-2 rounded-2xl text-[10px] font-semibold text-slate-400 transition-all duration-200">
+          <Download size={20}/>Export
+        </button>
+      </div>
     </div>
   );
 }
