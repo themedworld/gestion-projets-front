@@ -9,7 +9,7 @@ import {
   CheckIcon,
   ArrowPathIcon,
 } from "@heroicons/react/24/outline";
-import { UsePDFInstance } from "@react-pdf/renderer";
+import { usePDF } from "@react-pdf/renderer";
 import dynamic from "next/dynamic";
 
 const ResumeControlBar = ({
@@ -19,8 +19,6 @@ const ResumeControlBar = ({
   document,
   fileName,
   postId,
-  instance,
-  update,
 }: {
   scale: number;
   setScale: (scale: number) => void;
@@ -28,8 +26,6 @@ const ResumeControlBar = ({
   document: JSX.Element;
   fileName: string;
   postId: string;
-  instance: UsePDFInstance;
-  update: (document?: JSX.Element) => void;
 }) => {
   const router = useRouter();
   const [isExporting, setIsExporting] = useState(false);
@@ -41,62 +37,81 @@ const ResumeControlBar = ({
     documentSize,
   });
 
-  // Mettre à jour le PDF quand le document change
+  const [instance, update] = usePDF({ document });
+
+  // Hook to update pdf when document changes
   useEffect(() => {
+    // Attendre que le PDF soit mis à jour
     if (updateTimeoutRef.current) {
       clearTimeout(updateTimeoutRef.current);
     }
+
     updateTimeoutRef.current = setTimeout(() => {
-      update(document);
-    }, 300);
+      update();
+    }, 100);
 
     return () => {
       if (updateTimeoutRef.current) {
         clearTimeout(updateTimeoutRef.current);
       }
     };
-  }, [document]);
+  }, [update, document]);
 
+  // Fonction pour exporter en blob et naviguer vers la page de candidature
   const handleExportAndApply = async () => {
-    if (!postId) {
-      alert("ID de poste manquant.");
-      return;
-    }
-
     try {
       setIsExporting(true);
 
-      // Attendre que le blob soit prêt
-      const blob = await new Promise<Blob>((resolve, reject) => {
-        const start = Date.now();
-        const check = setInterval(() => {
-          if (instance.blob) {
-            clearInterval(check);
-            resolve(instance.blob);
-          }
-          if (Date.now() - start > 8000) {
-            clearInterval(check);
-            reject(new Error("Timeout : PDF non généré."));
-          }
+      // Forcer une mise à jour du PDF avant d'exporter
+      await new Promise((resolve) => {
+        setTimeout(() => {
+          update();
+          resolve(null);
         }, 100);
       });
 
-      // Convertir en base64 pour survie à la navigation
-      const reader = new FileReader();
-      reader.onloadend = () => {
-        const base64 = reader.result as string;
-        sessionStorage.setItem("resumeBase64", base64);
-        sessionStorage.setItem("resumeFileName", fileName);
-        setExportSuccess(true);
+      // Attendre que le blob soit disponible
+      await new Promise((resolve) => {
+        const checkBlob = setInterval(() => {
+          if (instance.blob) {
+            clearInterval(checkBlob);
+            resolve(null);
+          }
+        }, 50);
+
+        // Timeout après 5 secondes
+        setTimeout(() => {
+          clearInterval(checkBlob);
+          resolve(null);
+        }, 5000);
+      });
+
+      if (!instance.blob) {
+        throw new Error("Impossible de générer le PDF");
+      }
+
+      // Créer un blob URL
+      const blobUrl = URL.createObjectURL(instance.blob);
+
+      // Stocker dans localStorage
+      localStorage.setItem("resumeBlobUrl", blobUrl);
+      localStorage.setItem("resumeFileName", fileName);
+
+      setExportSuccess(true);
+
+      // Naviguer vers la page de candidature
+      if (postId) {
         setTimeout(() => {
           router.push(`/condidat/postuler/${postId}`);
-        }, 600);
-      };
-      reader.readAsDataURL(blob);
-
-    } catch (error: any) {
-      console.error("Erreur :", error);
-      alert(error.message || "Erreur lors de la génération du CV");
+        }, 500);
+      } else {
+        throw new Error(
+          "Erreur : ID de poste manquant. Veuillez accéder à cette page depuis une offre d'emploi."
+        );
+      }
+    } catch (error) {
+      console.error("Erreur lors de l'export :", error);
+      alert("Erreur lors de la génération du CV");
       setIsExporting(false);
     }
   };
@@ -129,40 +144,31 @@ const ResumeControlBar = ({
       </div>
 
       <div className="flex items-center gap-3 ml-auto">
-
         {/* Bouton Télécharger */}
-        
-          className={`flex items-center gap-1 rounded-md border border-gray-300 px-3 py-0.5 transition-colors ${
-            instance.url
-              ? "hover:bg-gray-100 cursor-pointer"
-              : "opacity-50 pointer-events-none"
-          }`}
-          href={instance.url ?? "#"}
+        <a
+          className="flex items-center gap-1 rounded-md border border-gray-300 px-3 py-0.5 hover:bg-gray-100 transition-colors"
+          href={instance.url!}
           download={fileName}
         >
           <ArrowDownTrayIcon className="h-4 w-4" />
           <span className="whitespace-nowrap text-sm">Télécharger</span>
         </a>
 
-        {/* Bouton Postuler */}
+        {/* Bouton Postuler (export et navigate) */}
         {postId && (
           <button
             onClick={handleExportAndApply}
-            disabled={isExporting || exportSuccess || !instance.blob}
+            disabled={isExporting || !instance.blob}
             className={`flex items-center gap-1 rounded-md px-3 py-0.5 font-medium transition-all whitespace-nowrap text-sm ${
               exportSuccess
-                ? "bg-green-500 text-white border border-green-600 cursor-default"
-                : isExporting
-                ? "bg-blue-400 text-white border border-blue-500 cursor-wait"
-                : !instance.blob
-                ? "bg-gray-300 text-gray-500 border border-gray-400 cursor-not-allowed"
-                : "bg-blue-600 hover:bg-blue-700 text-white border border-blue-700"
+                ? "bg-green-500 text-white border border-green-600"
+                : "bg-blue-600 hover:bg-blue-700 text-white border border-blue-700 disabled:opacity-50"
             }`}
           >
             {exportSuccess ? (
               <>
                 <CheckIcon className="h-4 w-4" />
-                <span>CV préparé ✓</span>
+                <span>CV préparé</span>
               </>
             ) : isExporting ? (
               <>
@@ -177,22 +183,19 @@ const ResumeControlBar = ({
             )}
           </button>
         )}
-
-        {/* Debug — retire en production */}
-        <div className="text-xs text-red-400">
-          blob: {instance.blob ? "✓" : "✗"} | 
-          url: {instance.url ? "✓" : "✗"} | 
-          err: {instance.error ?? "—"}
-        </div>
-
       </div>
     </div>
   );
 };
 
+/**
+ * Load ResumeControlBar client side since it uses usePDF, which is a web specific API
+ */
 export const ResumeControlBarCSR = dynamic(
   () => Promise.resolve(ResumeControlBar),
-  { ssr: false }
+  {
+    ssr: false,
+  }
 );
 
 export const ResumeControlBarBorder = () => (
