@@ -1,16 +1,12 @@
 import type { NextConfig } from "next";
 
-module.exports = {
+const nextConfig: NextConfig = {
   images: {
-    domains: ['drive.google.com', 'images.unsplash.com'],
+    domains: ['drive.google.com', 'images.unsplash.com', 'fonts.gstatic.com'],
   },
   typescript: {
     ignoreBuildErrors: true,
   },
-};
-
-const nextConfig: NextConfig = {
-  /* config options here */
 };
 
 export default nextConfig;

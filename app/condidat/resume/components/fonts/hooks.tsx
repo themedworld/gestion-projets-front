@@ -1,3 +1,7 @@
+import { useEffect } from "react";
+import { Font } from "@react-pdf/renderer";
+import { ENGLISH_FONT_FAMILIES } from "@/condidat/resume/components/fonts/constants";
+
 export const useRegisterReactPDFFont = () => {
   useEffect(() => {
     Font.register({ family: "Roboto", fonts: [
@@ -41,4 +45,17 @@ export const useRegisterReactPDFFont = () => {
       { src: "https://fonts.gstatic.com/s/merriweather/v30/u-4n0qyriQwlOrhSvowK_l52xwNZWMf6hPvhPQ.ttf", fontWeight: "bold" },
     ]});
   }, []);
+};
+
+// ← garder tel quel, rien ne change
+export const useRegisterReactPDFHyphenationCallback = (fontFamily: string) => {
+  useEffect(() => {
+    if (ENGLISH_FONT_FAMILIES.includes(fontFamily as any)) {
+      Font.registerHyphenationCallback((word) => [word]);
+    } else {
+      Font.registerHyphenationCallback((word) =>
+        word.split("").map((char) => [char, ""]).flat()
+      );
+    }
+  }, [fontFamily]);
 };
