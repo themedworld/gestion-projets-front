@@ -1,18 +1,9 @@
-
 const FontsZh = () => (
   <>
     <style jsx global>{`
-      @font-face {
-        font-family: "NotoSansSC";
-        src: url("/fonts/NotoSansSC-Regular.ttf");
-      }
-      @font-face {
-        font-family: "NotoSansSC";
-        src: url("/fonts/NotoSansSC-Bold.ttf");
-        font-weight: bold;
-      }
+      @import url('https://fonts.googleapis.com/css2?family=Noto+Sans+SC:wght@400;700&display=swap');
       .font-zh {
-        font-family: "NotoSansSC", sans-serif;
+        font-family: "Noto Sans SC", sans-serif;
       }
     `}</style>
   </>
