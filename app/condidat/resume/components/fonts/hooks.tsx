@@ -47,6 +47,7 @@ export const useRegisterReactPDFFont = () => {
   }, []);
 };
 
+// ← garder tel quel, rien ne change
 export const useRegisterReactPDFHyphenationCallback = (fontFamily: string) => {
   useEffect(() => {
     if (ENGLISH_FONT_FAMILIES.includes(fontFamily as any)) {
