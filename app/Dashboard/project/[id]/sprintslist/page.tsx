@@ -1,29 +1,9 @@
 'use client';
 // ─── SprintsPage.tsx ──────────────────────────────────────────────────────────
-//
-// FLUX COMPLET après chaque sauvegarde de sprint / tâche :
-//
-//  1. estimateAllTaskHours()  → POST /predict-hours pour chaque tâche
-//                               → task.aiEstimatedHours
-//
-//  2. computeProjectMetrics() →
-//       totalHours    = Σ aiEstimatedHours (ou estimatedHours) de TOUTES les tâches
-//       teamSize      = membres distincts affectés
-//       durationDays  = ceil(totalHours / 8 / teamSize)   ← estimatedDurationDays
-//       estimatedCost = Σ (heures × taux horaire)         ← fallback local seulement
-//
-//  3. estimateProjectCost()   → POST /predict-cost { estimatedDurationDays, teamSize, … }
-//                               → coût IA en DT
-//
-//  4. persistProjectMetrics() → PATCH /projects/:id/it-details
-//                               { estimatedDurationDays, estimatedCost (IA), teamSize }
-//                               → écrit dans ProjectITEntity
-//
-// Le coût stocké en base = résultat du modèle IA (fallback = taux horaires si API KO).
 
 import React, { useState, useEffect, useCallback } from 'react';
 import { useParams, useRouter } from 'next/navigation';
-import { ChevronLeft, Plus, AlertCircle, X, ListTodo } from 'lucide-react';
+import { ChevronLeft, Plus, AlertCircle, X, ListTodo, Zap, Calendar } from 'lucide-react';
 
 import type { Sprint, Task, ProjectMember } from '@/Dashboard/project/[id]/sprintslist/services/types';
 import { getEmptyTask } from '@/Dashboard/project/[id]/sprintslist/services/types';
@@ -43,8 +23,6 @@ import { SprintForm }          from '@/Dashboard/project/[id]/sprintslist/compon
 import { SprintCard }          from '@/Dashboard/project/[id]/sprintslist/components/SprintCard';
 import { ProjectSummaryPanel } from '@/Dashboard/project/[id]/sprintslist/components/ProjectSummaryPanel';
 
-// ─── Helpers ──────────────────────────────────────────────────────────────────
-
 const getAuthToken = () =>
   typeof window !== 'undefined' ? localStorage.getItem('access_token') ?? '' : '';
 
@@ -56,20 +34,20 @@ function emptyNewSprint(): Sprint {
   };
 }
 
-// ─── Component ────────────────────────────────────────────────────────────────
-
 const SprintsPage = () => {
   const params    = useParams() as { id?: string };
   const projectId = params?.id;
   const router    = useRouter();
 
-  // ── State ──────────────────────────────────────────────────────────────────
   const [members, setMembers]   = useState<ProjectMember[]>([]);
   const [sprints, setSprints]   = useState<Sprint[]>([]);
   const [metrics, setMetrics]   = useState<ProjectMetrics | null>(null);
 
-  // IT project details (framework, DB…) fetched once — passed to cost API
-  const [itDetails, setItDetails] = useState<Partial<CostEstimationRequest>>({});
+  const [projectStartDate, setProjectStartDate] = useState<string | undefined>();
+  const [projectEndDate,   setProjectEndDate]   = useState<string | undefined>();
+
+  const [itDetails,   setItDetails]   = useState<Partial<CostEstimationRequest>>({});
+  const [itProjectId, setItProjectId] = useState<number | null>(null);
 
   const [loading,    setLoading]    = useState(false);
   const [estimating, setEstimating] = useState(false);
@@ -91,7 +69,6 @@ const SprintsPage = () => {
 
   const apiBase = process.env.NEXT_PUBLIC_NEST_API_URL;
 
-  // ── apiFetch ───────────────────────────────────────────────────────────────
   async function apiFetch(url: string, options: RequestInit): Promise<Response> {
     const res = await fetch(url, options);
     if (!res.ok) {
@@ -102,25 +79,16 @@ const SprintsPage = () => {
     return res;
   }
 
-  // ── persistProjectMetrics → ProjectITEntity ────────────────────────────────
-  //
-  // Writes the three auto-computed fields to the DB:
-  //   estimatedDurationDays  ← ceil(totalHours / 8 / teamSize)
-  //   estimatedCost          ← AI cost model result  (DT)
-  //   teamSize               ← distinct assigned members
-  //
   const persistProjectMetrics = useCallback(
-    async (m: ProjectMetrics, aiCost: number) => {
-      if (!projectId) return;
+    async (m: ProjectMetrics, aiCost: number, itId: number) => {
       try {
         const token = getAuthToken();
         const body = {
-          estimatedDurationDays: m.durationDays,             // from task hours
-          estimatedCost:         Math.round(aiCost * 100) / 100, // AI or fallback
+          estimatedDurationDays: m.durationDays,
+          estimatedCost:         Math.round(aiCost * 100) / 100,
           teamSize:              m.teamSize,
         };
-        console.log('[persistProjectMetrics] PATCH it-details →', body);
-        await apiFetch(`${apiBase}/projects/${projectId}/it-details`, {
+        await apiFetch(`${apiBase}/projects/${itId}/it-details`, {
           method: 'PATCH',
           headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
           body: JSON.stringify(body),
@@ -129,85 +97,84 @@ const SprintsPage = () => {
         console.error('[persistProjectMetrics]', err);
       }
     },
-    [projectId, apiBase],
+    [apiBase],
   );
 
-  // ── refreshMetrics ─────────────────────────────────────────────────────────
-  //
-  // Called after every sprint/task save.
-  // Order: compute metrics → call AI cost API → write DB.
-  //
-const refreshMetrics = useCallback(
-  async (updatedSprints: Sprint[]) => {
-    if (updatedSprints.length === 0) {
-      setMetrics(null);
-      return;
-    }
+  const refreshMetrics = useCallback(
+    async (updatedSprints: Sprint[], itId: number | null) => {
+      if (updatedSprints.length === 0) { setMetrics(null); return; }
+      const m = computeProjectMetrics(updatedSprints, members, members.length);
+      setMetrics(m);
+      if (m.totalHours === 0 || !itId) return;
+      const token   = getAuthToken();
+      const aiCost  = await estimateProjectCost(m.durationDays, m.teamSize, itDetails, token);
+      const finalCost = aiCost !== null ? aiCost : m.estimatedCost;
+      await persistProjectMetrics(m, finalCost, itId);
+      setMetrics({ ...m, estimatedCost: finalCost });
+    },
+    [members, itDetails, persistProjectMetrics],
+  );
 
-    // ✅ passer members.length comme teamSize forcé
-    const m = computeProjectMetrics(updatedSprints, members, members.length);
-    setMetrics(m);
+  useEffect(() => { refreshMetrics(sprints, itProjectId); }, [sprints]);
 
-    if (m.totalHours === 0) return;
-
-    const token  = getAuthToken();
-    const aiCost = await estimateProjectCost(
-      m.durationDays,
-      m.teamSize,
-      itDetails,
-      token,
-    );
-
-    const finalCost = aiCost !== null ? aiCost : m.estimatedCost;
-    await persistProjectMetrics(m, finalCost);
-    setMetrics({ ...m, estimatedCost: finalCost });
-  },
-  [members, itDetails, persistProjectMetrics],
-);
-
-  // Re-run when sprints array reference changes (after fetchSprints resolves)
-  useEffect(() => {
-    refreshMetrics(sprints);
-  }, [sprints, refreshMetrics]);
-
-  // ── Fetch members ──────────────────────────────────────────────────────────
+  // ── Unique useEffect : charge les détails projet + sprints dans l'ordre ──
   useEffect(() => {
     if (!projectId) return;
     const token = getAuthToken();
-    fetch(`${apiBase}/projects/${projectId}/details`, {
+    setLoading(true);
+
+    fetch(`${apiBase}/projects/${projectId}/details?includeDomainDetails=true`, {
       headers: { Authorization: `Bearer ${token}` },
     })
       .then((r) => (r.ok ? r.json() : null))
       .then((data) => {
-        if (data) {
-          setMembers(data.project?.assignedTo ?? []);
+        if (!data) return;
 
-          // Pull IT-specific fields to enrich cost estimation payload
-          const it = data.project?.itDetails ?? {};
-          setItDetails({
-            programmingLanguages: it.programmingLanguages,
-            framework:            it.framework,
-            database:             it.database,
-            serverDetails:        it.serverDetails,
-            architecture:         it.architecture,
-            apiIntegration:       it.apiIntegration,
-            securityRequirements: it.securityRequirements,
-            devOpsRequirements:   it.devOpsRequirements,
-            priority:             it.priority,
-            businessImpact:       it.businessImpact,
-            complexity:           it.complexity,
-            mainModules:          it.mainModules,
-          });
+        setMembers(data.project?.assignedTo ?? []);
+        const proj = data.project ?? {};
+        if (proj.startDate) setProjectStartDate(proj.startDate);
+        if (proj.endDate)   setProjectEndDate(proj.endDate);
+
+        // ── Récupère l'ID du ProjectITEntity depuis domainDetails ──
+        const itId = data.domainDetails?.id ?? proj.itDetails?.id ?? null;
+        setItProjectId(itId);
+
+        const it = data.domainDetails ?? proj.itDetails ?? {};
+        setItDetails({
+          programmingLanguages: it.programmingLanguages,
+          framework:            it.framework,
+          database:             it.database,
+          serverDetails:        it.serverDetails,
+          architecture:         it.architecture,
+          apiIntegration:       it.apiIntegration,
+          securityRequirements: it.securityRequirements,
+          devOpsRequirements:   it.devOpsRequirements,
+          priority:             it.priority,
+          businessImpact:       it.businessImpact,
+          complexity:           it.complexity,
+          mainModules:          it.mainModules,
+        });
+
+        // ── Charge les sprints avec l'ID IT — chaîné ici pour éviter le null ──
+        if (itId) {
+          return fetch(`${apiBase}/projects/${projectId}/sprints`, {
+            headers: { Authorization: `Bearer ${token}` },
+          })
+            .then((r) => (r.ok ? r.json() : []))
+            .then((sprintsData) => setSprints(Array.isArray(sprintsData) ? sprintsData : []));
         }
       })
-      .catch(console.error);
+      .catch((err) => {
+        console.error(err);
+        setError('Erreur lors du chargement du projet');
+      })
+      .finally(() => setLoading(false));
   }, [projectId]);
 
-  // ── Fetch sprints ──────────────────────────────────────────────────────────
-  useEffect(() => { fetchSprints(); }, [projectId]);
-
-  const fetchSprints = async () => {
-    if (!projectId) return;
+  // ── fetchSprints utilise itProjectId (pour les refresh après create/edit) ──
+  const fetchSprints = async (itId?: number) => {
+    const id = itId ?? itProjectId;
+    if (!id) return;
     setLoading(true);
     try {
       const token = getAuthToken();
@@ -233,21 +200,20 @@ const refreshMetrics = useCallback(
     });
   };
 
-  // ── Sprint CRUD ────────────────────────────────────────────────────────────
-
   const handleCreateSprint = async () => {
     if (!newSprint.name || !newSprint.startDate || !newSprint.endDate) {
       setError('Veuillez remplir tous les champs obligatoires du sprint');
       return;
     }
+    if (!itProjectId) {
+      setError('Les détails IT du projet ne sont pas encore chargés. Veuillez patienter.');
+      return;
+    }
     const validTasks = newSprintTasks.filter((t) => t.title.trim());
-
-    // AI task-hour estimation
     setEstimating(true);
     const token = getAuthToken();
     const tasksWithEstimates = await estimateAllTaskHours(validTasks, token, members);
     setEstimating(false);
-
     setLoading(true);
     try {
       const payload = [{
@@ -256,18 +222,16 @@ const refreshMetrics = useCallback(
         endDate:   new Date(newSprint.endDate).toISOString(),
         tasks: tasksWithEstimates.map(serializeTask),
       }];
-      const res = await apiFetch(`${apiBase}/projects/${projectId}/sprints`, {
-        method: 'POST',
+      const res = await apiFetch(`${apiBase}/projects/${itProjectId}/sprints`, {        method: 'POST',
         headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
         body: JSON.stringify(payload),
       });
       if (!res.ok) throw new Error('Erreur lors de la création du sprint');
-
       setSuccess('Sprint créé avec succès!');
       setShowCreateSprint(false);
       setNewSprint(emptyNewSprint());
       setNewSprintTasks([getEmptyTask()]);
-      await fetchSprints(); // triggers refreshMetrics via useEffect
+      await fetchSprints();
     } catch (err: any) {
       setError(err.message);
     } finally {
@@ -300,30 +264,25 @@ const refreshMetrics = useCallback(
       });
       if (!res.ok) throw new Error('Erreur lors de la mise à jour du sprint');
 
-      // New tasks added during edit — estimate them before saving
       const newTasks = editingSprintTasks.filter((t) => !t.id && t.title.trim());
       if (newTasks.length) {
         setEstimating(true);
         const tasksWithEstimates = await estimateAllTaskHours(newTasks, token, members);
         setEstimating(false);
         for (const task of tasksWithEstimates) {
-          const r = await apiFetch(
-            `${apiBase}/projects/sprints/${editingSprintId}/tasks`,
-            {
-              method: 'POST',
-              headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
-              body: JSON.stringify(serializeTask(task)),
-            },
-          );
+          const r = await apiFetch(`${apiBase}/projects/sprints/${editingSprintId}/tasks`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
+            body: JSON.stringify(serializeTask(task)),
+          });
           if (!r.ok) throw new Error('Erreur lors de la création de la tâche');
         }
       }
-
       setSuccess('Sprint mis à jour avec succès!');
       setEditingSprintId(null);
       setEditingSprintData(null);
       setEditingSprintTasks([]);
-      await fetchSprints(); // triggers refreshMetrics via useEffect
+      await fetchSprints();
     } catch (err: any) {
       setError(err.message);
     } finally {
@@ -341,8 +300,7 @@ const refreshMetrics = useCallback(
         headers: { Authorization: `Bearer ${token}` },
       });
       if (!res.ok) throw new Error('Erreur lors de la suppression');
-      const updated = sprints.filter((s) => s.id !== sprintId);
-      setSprints(updated); // triggers refreshMetrics via useEffect
+      setSprints(sprints.filter((s) => s.id !== sprintId));
       setSuccess('Sprint supprimé!');
     } catch (err: any) {
       setError(err.message);
@@ -351,38 +309,28 @@ const refreshMetrics = useCallback(
     }
   };
 
-  // ── Task CRUD ──────────────────────────────────────────────────────────────
-
-const handleStartEditTask = (task: Task, sprintId: number) => {
-  setEditingTaskId(task.id ?? 0);
-  setEditingTaskSprintId(sprintId);
-  setEditingTaskData({
-    ...task,
-    assignedTo: task.assignedTo
-      ? Number(
-          typeof task.assignedTo === 'object'
-            ? (task.assignedTo as any).id
-            : task.assignedTo,
-        )
-      : '',
-  });
-};
+  const handleStartEditTask = (task: Task, sprintId: number) => {
+    setEditingTaskId(task.id ?? 0);
+    setEditingTaskSprintId(sprintId);
+    setEditingTaskData({
+      ...task,
+      assignedTo: task.assignedTo
+        ? Number(typeof task.assignedTo === 'object' ? (task.assignedTo as any).id : task.assignedTo)
+        : '',
+    });
+  };
 
   const handleSaveTask = async () => {
     if (!editingTaskData || !editingTaskId) return;
-
-    // Re-estimate this task with the AI model
     setEstimating(true);
     const token   = getAuthToken();
     const aiHours = await estimateTaskHours(editingTaskData, token, members);
     setEstimating(false);
-
     const taskWithAI: Task = {
       ...editingTaskData,
       aiEstimatedHours: aiHours ?? editingTaskData.aiEstimatedHours,
       estimatedHours:   aiHours ?? editingTaskData.estimatedHours ?? 0,
     };
-
     setLoading(true);
     try {
       const res = await apiFetch(`${apiBase}/projects/tasks/${editingTaskId}`, {
@@ -391,15 +339,12 @@ const handleStartEditTask = (task: Task, sprintId: number) => {
         body: JSON.stringify(serializeTask(taskWithAI)),
       });
       if (!res.ok) throw new Error('Erreur lors de la mise à jour');
-
-      // Update local sprint state immediately (optimistic)
       const updatedSprints = sprints.map((s) =>
         s.id === editingTaskSprintId
           ? { ...s, tasks: s.tasks.map((t) => (t.id === editingTaskId ? taskWithAI : t)) }
           : s,
       );
-      setSprints(updatedSprints); // triggers refreshMetrics via useEffect
-
+      setSprints(updatedSprints);
       setSuccess('Tâche mise à jour!');
       setEditingTaskId(null);
       setEditingTaskSprintId(null);
@@ -410,13 +355,13 @@ const handleStartEditTask = (task: Task, sprintId: number) => {
       setLoading(false);
     }
   };
-// Avec les autres helpers (après getAuthToken)
-// ✅ Envoie une ISO string complète — TypeORM la cast automatiquement en Date
-const formatDate = (val: string | null | undefined): string | null => {
-  if (!val) return null;
-  const d = new Date(val);
-  return isNaN(d.getTime()) ? null : d.toISOString(); // "2024-01-20T00:00:00.000Z"
-};
+
+  const formatDate = (val: string | null | undefined): string | null => {
+    if (!val) return null;
+    const d = new Date(val);
+    return isNaN(d.getTime()) ? null : d.toISOString();
+  };
+
   const handleDeleteTask = async (taskId: number, sprintId: number) => {
     if (!confirm('Êtes-vous sûr de vouloir supprimer cette tâche?')) return;
     setLoading(true);
@@ -427,10 +372,9 @@ const formatDate = (val: string | null | undefined): string | null => {
         headers: { Authorization: `Bearer ${token}` },
       });
       if (!res.ok) throw new Error('Erreur lors de la suppression');
-      const updatedSprints = sprints.map((s) =>
+      setSprints(sprints.map((s) =>
         s.id === sprintId ? { ...s, tasks: s.tasks.filter((t) => t.id !== taskId) } : s,
-      );
-      setSprints(updatedSprints); // triggers refreshMetrics via useEffect
+      ));
       setSuccess('Tâche supprimée!');
     } catch (err: any) {
       setError(err.message);
@@ -439,46 +383,12 @@ const formatDate = (val: string | null | undefined): string | null => {
     }
   };
 
-  // ── serializeTask ──────────────────────────────────────────────────────────
-  //
-  // Maps frontend Task → CreateTaskITDto / UpdateTaskITDto.
-  //
-  // Rules:
-  //   ✅ estimatedHours   → aiEstimatedHours (priority) or manual fallback
-  //   ✅ complexityScore  → int 1-5
-  //   ✅ riskLevel        → int 1-5
-  //   ✅ complexity       → text 'Low'|'Medium'|'High'
-  //   ✅ hasBlockingDependencies / dependenciesCount → derived
-  //   ✅ scheduledEndDate → only existing date column in TaskITEntity
-  //   ✅ assignedTo       → { id: number } relation object
-  //   ❌ scheduledStartDate → no DB column — never sent
-  //   ❌ aiEstimatedHours  → not a DB column — never sent
-  //
   function serializeTask(t: Task): Record<string, unknown> {
-    // Resolve estimated hours — AI takes priority
     const estimatedHours =
-      t.aiEstimatedHours != null
-        ? Number(t.aiEstimatedHours)
-        : Number(t.estimatedHours) || 0;
-
-    // Dependency meta-fields derived from the text field
+      t.aiEstimatedHours != null ? Number(t.aiEstimatedHours) : Number(t.estimatedHours) || 0;
     const dependenciesRaw   = t.dependencies?.trim() ?? '';
-    const dependenciesCount = dependenciesRaw
-      ? dependenciesRaw.split(',').filter(Boolean).length
-      : 0;
+    const dependenciesCount = dependenciesRaw ? dependenciesRaw.split(',').filter(Boolean).length : 0;
     const hasBlockingDependencies = dependenciesCount > 0;
-
-    // scheduledEndDate — only existing date column in TaskITEntity
-const scheduledStartDate = t.scheduledStartDate 
-  ? new Date(t.scheduledStartDate).toISOString() 
-  : null;
-
-const scheduledEndDate = t.scheduledEndDate 
-  ? new Date(t.scheduledEndDate).toISOString() 
-  : null;
-
-
-    // assignedTo — backend expects { id } relation object
     const assignedTo = (() => {
       const raw = t.assignedTo;
       if (!raw) return null;
@@ -489,165 +399,210 @@ const scheduledEndDate = t.scheduledEndDate
       const id = Number(raw);
       return isNaN(id) || id === 0 ? null : { id };
     })();
-
     return {
-      // Core
-      title:       t.title,
-      description: t.description ?? null,
-
-      // Enums (UPPER_CASE)
-      type:     t.type     ?? 'FEATURE',
-      status:   t.status   ?? 'TO_DO',
-      priority: t.priority ?? 'MEDIUM',
-
-      // Numeric
-      storyPoints:     Number(t.storyPoints)    || 0,
-      estimatedHours,                              // ← AI hours written here
-      complexityScore: Number(t.complexityScore) || 1,
-      riskLevel:       Number(t.riskLevel)       || 1,
-
-      // Text label
+      title: t.title, description: t.description ?? null,
+      type: t.type ?? 'FEATURE', status: t.status ?? 'TO_DO', priority: t.priority ?? 'MEDIUM',
+      storyPoints: Number(t.storyPoints) || 0, estimatedHours,
+      complexityScore: Number(t.complexityScore) || 1, riskLevel: Number(t.riskLevel) || 1,
       complexity: t.complexity ?? 'Medium',
-
-      // Dependency meta
-      hasBlockingDependencies,
-      dependenciesCount,
-
-      // Free text
-      dependencies:    dependenciesRaw  || null,
-      risks:           t.risks          || null,
+      hasBlockingDependencies, dependenciesCount,
+      dependencies: dependenciesRaw || null, risks: t.risks || null,
       additionalNotes: t.additionalNotes || null,
-
-      // Delay
       delayHours: Number(t.delayHours ?? 0) || 0,
-
-      // Date (only scheduledEndDate exists in the entity)
-scheduledStartDate: formatDate(t.scheduledStartDate ?? null),
-scheduledEndDate: formatDate(t.scheduledEndDate ?? null),
-      // scheduledStartDate intentionally omitted — no column in DB
-      // aiEstimatedHours  intentionally omitted — not a DB column
-
-      // Relation
+      scheduledStartDate: formatDate(t.scheduledStartDate ?? null),
+      scheduledEndDate:   formatDate(t.scheduledEndDate   ?? null),
       assignedTo,
     };
   }
 
   // ── Render ─────────────────────────────────────────────────────────────────
   return (
-    <div className="min-h-screen bg-gradient-to-br from-slate-50 to-slate-100 py-8 px-4 sm:px-6 lg:px-8">
-      <div className="max-w-7xl mx-auto">
+    <div className="min-h-screen bg-gradient-to-br from-cyan-50 via-teal-50 to-slate-100">
 
-        {/* Header */}
-        <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between mb-8 gap-4">
-          <div>
+      <header className="sticky top-0 z-30 bg-white/80 backdrop-blur-md border-b border-teal-100 shadow-sm">
+        <div className="max-w-5xl mx-auto px-3 sm:px-6 h-14 sm:h-16 flex items-center justify-between gap-2">
+          <div className="flex items-center gap-2 min-w-0">
             <button
               onClick={() => router.back()}
-              className="flex items-center gap-2 text-slate-500 hover:text-indigo-600 mb-2 transition-colors font-medium"
+              className="shrink-0 flex items-center justify-center w-8 h-8 sm:w-9 sm:h-9
+                         rounded-xl text-teal-600 hover:bg-teal-50 transition-colors"
+              aria-label="Retour"
             >
-              <ChevronLeft size={18} /> Retour au projet
+              <ChevronLeft size={20} />
             </button>
-            <h1 className="text-3xl font-extrabold text-slate-900 tracking-tight">
-              Gestion des Sprints
-            </h1>
-            <p className="text-slate-500 mt-1">
-              Créez, modifiez et gérez les sprints de votre projet
-            </p>
+            <div className="min-w-0">
+              <h1 className="text-sm sm:text-lg font-bold text-slate-800 truncate leading-tight">
+                Gestion des Sprints
+              </h1>
+              {(projectStartDate || projectEndDate) && (
+                <p className="hidden sm:flex items-center gap-1 text-xs text-teal-600 leading-tight mt-0.5">
+                  <Calendar size={11} />
+                  {projectStartDate && (
+                    <span>{new Date(projectStartDate).toLocaleDateString('fr-FR', { day: 'numeric', month: 'short' })}</span>
+                  )}
+                  {projectStartDate && projectEndDate && <span>→</span>}
+                  {projectEndDate && (
+                    <span className="font-semibold">
+                      {new Date(projectEndDate).toLocaleDateString('fr-FR', { day: 'numeric', month: 'short', year: 'numeric' })}
+                    </span>
+                  )}
+                </p>
+              )}
+            </div>
           </div>
+
           <button
             onClick={() => setShowCreateSprint((v) => !v)}
-            className="flex items-center gap-2 px-4 py-2.5 bg-indigo-600 text-white rounded-lg
-                       font-semibold hover:bg-indigo-700 transition-colors shadow-md shadow-indigo-200"
+            className={`shrink-0 flex items-center gap-1.5 px-3 py-2 sm:px-4 sm:py-2.5
+                        rounded-xl text-xs sm:text-sm font-semibold transition-all shadow-sm active:scale-95
+                        ${showCreateSprint
+                          ? 'bg-slate-100 text-slate-600 border border-slate-200'
+                          : 'bg-gradient-to-r from-teal-500 to-cyan-500 text-white hover:from-teal-600 hover:to-cyan-600 shadow-teal-200'
+                        }`}
           >
-            <Plus size={18} />
-            {showCreateSprint ? 'Annuler' : 'Nouveau Sprint'}
+            {showCreateSprint
+              ? <><X size={14} /><span>Annuler</span></>
+              : <><Plus size={14} /><span className="hidden xs:inline sm:inline">Nouveau </span><span>Sprint</span></>
+            }
           </button>
         </div>
+      </header>
 
-        {/* Error banner */}
+      {(projectStartDate || projectEndDate) && (
+        <div className="sm:hidden bg-gradient-to-r from-teal-500 to-cyan-500 text-white
+                        text-xs px-4 py-1.5 flex items-center gap-2">
+          <Calendar size={11} className="shrink-0" />
+          <span className="truncate">
+            {projectStartDate && (
+              <span>{new Date(projectStartDate).toLocaleDateString('fr-FR', { day: 'numeric', month: 'short' })} → </span>
+            )}
+            {projectEndDate && (
+              <span className="font-semibold">
+                Deadline : {new Date(projectEndDate).toLocaleDateString('fr-FR', { day: 'numeric', month: 'short', year: 'numeric' })}
+              </span>
+            )}
+          </span>
+        </div>
+      )}
+
+      <main className="max-w-5xl mx-auto px-3 sm:px-6 py-4 sm:py-6 space-y-3 sm:space-y-4 pb-8">
+
+        {estimating && (
+          <div className="flex items-center gap-2 px-3 py-2.5 bg-teal-50 border border-teal-200
+                          rounded-xl text-teal-700 text-xs sm:text-sm font-medium">
+            <Zap size={14} className="animate-pulse shrink-0 text-teal-500" />
+            Estimation IA en cours…
+          </div>
+        )}
+
         {error && (
-          <div className="mb-6 p-4 bg-red-50 border border-red-200 rounded-lg flex items-center justify-between text-red-700">
-            <div className="flex items-center gap-3">
-              <AlertCircle size={20} />
-              <span>{error}</span>
-            </div>
-            <button onClick={() => setError(null)}><X size={18} /></button>
+          <div className="flex items-start gap-2.5 p-3 sm:p-4 bg-red-50 border border-red-200
+                          rounded-xl text-red-700 text-xs sm:text-sm">
+            <AlertCircle size={15} className="mt-0.5 shrink-0" />
+            <span className="flex-1 leading-snug">{error}</span>
+            <button onClick={() => setError(null)} className="shrink-0 p-0.5 hover:text-red-900 transition-colors">
+              <X size={14} />
+            </button>
           </div>
         )}
 
-        {/* Success banner */}
         {success && (
-          <div className="mb-6 p-4 bg-green-50 border border-green-200 rounded-lg flex items-center justify-between text-green-700">
-            <span>{success}</span>
-            <button onClick={() => setSuccess(null)}><X size={18} /></button>
+          <div className="flex items-center justify-between gap-2 p-3 sm:p-4 bg-teal-50
+                          border border-teal-200 rounded-xl text-teal-700 text-xs sm:text-sm font-medium">
+            <span>✓ {success}</span>
+            <button onClick={() => setSuccess(null)} className="shrink-0 hover:text-teal-900 transition-colors">
+              <X size={14} />
+            </button>
           </div>
         )}
 
-        {/* Project summary */}
         {metrics && metrics.totalHours > 0 && (
           <ProjectSummaryPanel metrics={metrics} />
         )}
 
-        {/* Create sprint form */}
         {showCreateSprint && (
-          <SprintForm
-            mode="create"
-            sprint={newSprint}
-            tasks={newSprintTasks}
-            members={members}
-            loading={loading}
-            estimating={estimating}
-            onSprintChange={(field, value) =>
-              setNewSprint((p) => ({ ...p, [field]: value }))
-            }
-            onTaskChange={(idx, field, value) => {
-              setNewSprintTasks((prev) => {
-                const next = [...prev];
-                next[idx] = { ...next[idx], [field]: value };
-                return next;
-              });
-            }}
-            onAddTask={() => setNewSprintTasks((p) => [...p, getEmptyTask()])}
-            onRemoveTask={(idx) =>
-              setNewSprintTasks((p) =>
-                p.length > 1 ? p.filter((_, i) => i !== idx) : p,
-              )
-            }
-            onSave={handleCreateSprint}
-            onCancel={() => {
-              setShowCreateSprint(false);
-              setNewSprint(emptyNewSprint());
-              setNewSprintTasks([getEmptyTask()]);
-            }}
-          />
+          <div className="bg-white rounded-2xl border border-teal-100 shadow-sm shadow-teal-100 overflow-hidden">
+            <div className="flex items-center gap-2.5 px-4 sm:px-6 py-3 sm:py-4
+                            bg-gradient-to-r from-teal-50 to-cyan-50 border-b border-teal-100">
+              <div className="w-7 h-7 sm:w-8 sm:h-8 rounded-lg bg-gradient-to-br from-teal-500 to-cyan-500
+                              flex items-center justify-center shrink-0">
+                <Plus size={14} className="text-white" />
+              </div>
+              <h2 className="text-sm sm:text-base font-bold text-slate-800">Nouveau sprint</h2>
+            </div>
+            <SprintForm
+              mode="create"
+              sprint={newSprint}
+              tasks={newSprintTasks}
+              members={members}
+              allSprints={sprints}
+              projectStartDate={projectStartDate}
+              projectEndDate={projectEndDate}
+              loading={loading}
+              estimating={estimating}
+              onSprintChange={(field, value) => setNewSprint((p) => ({ ...p, [field]: value }))}
+              onTaskChange={(idx, field, value) => {
+                setNewSprintTasks((prev) => {
+                  const next = [...prev];
+                  next[idx] = { ...next[idx], [field]: value };
+                  return next;
+                });
+              }}
+              onAddTask={() => setNewSprintTasks((p) => [...p, getEmptyTask()])}
+              onRemoveTask={(idx) =>
+                setNewSprintTasks((p) => p.length > 1 ? p.filter((_, i) => i !== idx) : p)
+              }
+              onSave={handleCreateSprint}
+              onCancel={() => {
+                setShowCreateSprint(false);
+                setNewSprint(emptyNewSprint());
+                setNewSprintTasks([getEmptyTask()]);
+              }}
+            />
+          </div>
         )}
 
-        {/* Loading */}
         {loading && !showCreateSprint && (
-          <div className="text-center py-12">
-            <div className="inline-block animate-spin rounded-full h-12 w-12 border-b-2 border-indigo-600" />
-            <p className="text-slate-600 mt-4">Chargement des sprints…</p>
+          <div className="flex flex-col items-center justify-center py-16 gap-3">
+            <div className="w-10 h-10 rounded-full border-2 border-teal-200 border-t-teal-500 animate-spin" />
+            <p className="text-sm text-slate-500">Chargement des sprints…</p>
           </div>
         )}
 
-        {/* Empty state */}
         {!loading && sprints.length === 0 && !showCreateSprint && (
-          <div className="text-center py-12 bg-white rounded-xl border border-slate-200">
-            <ListTodo size={48} className="mx-auto text-slate-300 mb-3" />
-            <p className="text-slate-500 text-lg">Aucun sprint trouvé</p>
-            <p className="text-slate-400 text-sm mt-2">
-              Créez votre premier sprint pour commencer
+          <div className="flex flex-col items-center justify-center py-16 sm:py-20
+                          bg-white rounded-2xl border border-dashed border-teal-200 px-6 text-center">
+            <div className="w-14 h-14 sm:w-16 sm:h-16 rounded-2xl bg-gradient-to-br from-teal-50 to-cyan-100
+                            flex items-center justify-center mb-4 shadow-sm">
+              <ListTodo size={28} className="text-teal-400" />
+            </div>
+            <p className="text-slate-700 font-semibold text-sm sm:text-base mb-1">
+              Aucun sprint pour l'instant
             </p>
+            <p className="text-slate-400 text-xs sm:text-sm mb-5 max-w-xs leading-relaxed">
+              Créez votre premier sprint pour commencer à planifier votre projet.
+            </p>
+            <button
+              onClick={() => setShowCreateSprint(true)}
+              className="flex items-center gap-2 px-4 py-2.5 bg-gradient-to-r from-teal-500 to-cyan-500
+                         text-white text-sm font-semibold rounded-xl hover:from-teal-600 hover:to-cyan-600
+                         transition-all shadow-sm shadow-teal-200 active:scale-95"
+            >
+              <Plus size={15} /> Créer un sprint
+            </button>
           </div>
         )}
 
-        {/* Sprint list */}
         {!loading && sprints.length > 0 && (
-          <div className="space-y-4">
+          <div className="space-y-3">
             {sprints.map((sprint) => (
               <SprintCard
                 key={sprint.id}
                 sprint={sprint}
                 members={members}
+                allSprints={sprints}
+                projectStartDate={projectStartDate}
+                projectEndDate={projectEndDate}
                 isExpanded={expandedSprints.has(sprint.id!)}
                 isEditing={editingSprintId === sprint.id}
                 editingSprintData={editingSprintData}
@@ -669,9 +624,7 @@ scheduledEndDate: formatDate(t.scheduledEndDate ?? null),
                     return next;
                   });
                 }}
-                onAddSprintTask={() =>
-                  setEditingSprintTasks((p) => [...p, getEmptyTask()])
-                }
+                onAddSprintTask={() => setEditingSprintTasks((p) => [...p, getEmptyTask()])}
                 onRemoveSprintTask={(idx) => {
                   const task = editingSprintTasks[idx];
                   if (task.id) {
@@ -702,9 +655,10 @@ scheduledEndDate: formatDate(t.scheduledEndDate ?? null),
             ))}
           </div>
         )}
-      </div>
+      </main>
     </div>
   );
 };
 
 export default SprintsPage;
+

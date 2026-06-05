@@ -81,20 +81,27 @@ const DOMAIN_DTO_FIELDS: Record<string, string[]> = {
     'additionalNotes',
     'teamSize',
   ],
-  IT: [
-    'techStack',
-    'methodology',
-    'repositoryUrl',
-    'totalStoryPoints',
-    'sprintDuration',
-    'priority',
-    'complexity',
-    'mainGoals',
-    'dependencies',
-    'risks',
-    'additionalNotes',
-    'teamSize',
-  ],
+IT: [
+  'programmingLanguages',
+  'framework',
+  'database',
+  'serverDetails',
+  'architecture',
+  'apiIntegration',
+  'securityRequirements',
+  'devOpsRequirements',
+  'estimatedDurationDays',
+  'estimatedCost',
+  'priority',
+  'businessImpact',
+  'teamSize',
+  'complexity',
+  'mainModules',
+  'keyDeliverables',
+  'dependencies',
+  'risks',
+  'additionalNotes',
+],
 };
 
 // ─── Numeric fields per domain — coerced to Number before sending to backend ──
@@ -118,11 +125,11 @@ const DOMAIN_NUMERIC_FIELDS: Record<string, Set<string>> = {
     'estimatedBudget',
     'teamSize',
   ]),
-  IT: new Set([
-    'totalStoryPoints',
-    'sprintDuration',
-    'teamSize',
-  ]),
+IT: new Set([
+  'estimatedDurationDays',
+  'estimatedCost',
+  'teamSize',
+]),
 };
 
 const getToken = () =>

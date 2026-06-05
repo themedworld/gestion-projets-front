@@ -1,13 +1,6 @@
 'use client';
 // ─── TaskForm.tsx ─────────────────────────────────────────────────────────────
-// Reusable task form.
-// • `mode="inline"` — compact, used inside sprint creation/edition (no save button)
-// • `mode="edit"`   — standalone with Save / Cancel buttons, used for editing existing tasks
-//
-// Date validation:
-//   task.scheduledStartDate and task.scheduledEndDate must both lie within
-//   [sprint.startDate, sprint.endDate].  Errors are shown inline and the Save
-//   button is disabled until all errors are resolved.
+// Turquoise/light theme — mobile-first responsive.
 
 import React, { useMemo } from 'react';
 import { Calendar, Cpu, Save, Loader2, Trash2, AlertCircle } from 'lucide-react';
@@ -23,7 +16,6 @@ interface TaskFormProps {
   index?: number;
   members: ProjectMember[];
   mode: 'inline' | 'edit';
-  /** Sprint bounds used for date validation */
   sprint?: Pick<Sprint, 'startDate' | 'endDate' | 'name'>;
   disabled?: boolean;
   loading?: boolean;
@@ -35,53 +27,51 @@ interface TaskFormProps {
   onRemove?: () => void;
 }
 
-// ── Small inline error message ────────────────────────────────────────────────
+/* ── helpers ────────────────────────────────────────────────────────────────── */
 const FieldError = ({ message }: { message: string }) => (
-  <p className="mt-1 text-xs text-red-600 flex items-center gap-1">
+  <p className="mt-1.5 text-xs text-red-500 flex items-center gap-1">
     <AlertCircle size={11} className="flex-shrink-0" />
     {message}
   </p>
 );
 
-export const TaskForm: React.FC<TaskFormProps> = ({
-  task,
-  index,
-  members,
-  mode,
-  sprint,
-  disabled = false,
-  loading = false,
-  estimating = false,
-  showRemoveButton = false,
-  onChange,
-  onSave,
-  onCancel,
-  onRemove,
-}) => {
-  const isExisting = !!task.id;
-  const lock = (forExisting = true) =>
-    disabled || (mode === 'inline' && isExisting && forExisting);
-  // Utilitaire à ajouter
 function getMemberName(assignedTo: any, members: ProjectMember[]): string {
   if (!assignedTo) return '—';
-  
-  // Objet retourné directement par le backend { id, firstName, lastName }
   if (typeof assignedTo === 'object' && assignedTo.firstName) {
     return `${assignedTo.firstName} ${assignedTo.lastName ?? ''}`.trim();
   }
-  
-  // ID numérique ou string → chercher dans members
   const id = typeof assignedTo === 'object' ? assignedTo.id : Number(assignedTo);
-  const member = members.find(m => m.id === id);
+  const member = members.find((m) => m.id === id);
   return member
     ? (member.name ?? `${member.firstName ?? ''} ${member.lastName ?? ''}`.trim())
     : '—';
 }
 
-// Usage dans le JSX
+/* ── shared teal input/label styles ─────────────────────────────────────────── */
+const tealInput = `
+  w-full rounded-xl border border-teal-200
+  bg-white text-slate-800 text-sm
+  px-3 py-2
+  focus:outline-none focus:ring-2 focus:ring-teal-400/40 focus:border-teal-400
+  placeholder:text-slate-400
+  disabled:bg-slate-50 disabled:text-slate-400 disabled:cursor-not-allowed
+  transition-colors duration-150
+`;
+const tealLabel = 'block text-xs font-semibold text-teal-700 mb-1 uppercase tracking-wide';
+const errorBorder = 'border-red-300 focus:border-red-400 focus:ring-red-300/30';
 
+/* ── component ──────────────────────────────────────────────────────────────── */
+export const TaskForm: React.FC<TaskFormProps> = ({
+  task, index, members, mode, sprint,
+  disabled = false, loading = false, estimating = false,
+  showRemoveButton = false,
+  onChange, onSave, onCancel, onRemove,
+}) => {
+  const isExisting = !!task.id;
+  const lock = (forExisting = true) =>
+    disabled || (mode === 'inline' && isExisting && forExisting);
 
-  // ── Date validation ─────────────────────────────────────────────────────────
+  /* date validation */
   const dateErrors = useMemo(() => {
     if (!sprint?.startDate || !sprint?.endDate) return [];
     return validateTaskDates(task, sprint);
@@ -92,7 +82,6 @@ function getMemberName(assignedTo: any, members: ProjectMember[]): string {
 
   const hasDateErrors = dateErrors.length > 0;
 
-  // ── Date input constraints (min/max) based on sprint ───────────────────────
   const sprintMin = sprint?.startDate
     ? new Date(sprint.startDate).toISOString().split('T')[0]
     : undefined;
@@ -100,42 +89,60 @@ function getMemberName(assignedTo: any, members: ProjectMember[]): string {
     ? new Date(sprint.endDate).toISOString().split('T')[0]
     : undefined;
 
-  const errorBorder = 'border-red-400 focus:border-red-500 focus:ring-red-400/30';
-
   return (
     <div
       className={
         mode === 'edit'
-          ? 'space-y-4 p-4 bg-blue-50 border border-blue-200 rounded-lg mt-3'
-          : 'p-4 bg-slate-50 border border-slate-200 rounded-lg'
+          ? 'space-y-4 p-4 sm:p-5 bg-teal-50/60 border border-teal-200 rounded-2xl mt-3'
+          : 'p-4 sm:p-5 bg-cyan-50/40 border border-teal-100 rounded-2xl'
       }
     >
       {/* ── Header ─────────────────────────────────────────────────────────── */}
       {mode === 'inline' && (
-        <div className="flex justify-between items-start mb-3">
-          <h4 className="font-semibold text-slate-700">
-            {index !== undefined ? `Tâche ${index + 1}` : 'Tâche'}{' '}
-            {isExisting ? '(existante)' : '(nouvelle)'}
+        <div className="flex justify-between items-center mb-3">
+          <h4 className="font-semibold text-sm text-teal-700 flex items-center gap-1.5">
+            <span className="
+              w-5 h-5 rounded-full bg-teal-100 text-teal-600
+              flex items-center justify-center text-[10px] font-bold flex-shrink-0
+            ">
+              {index !== undefined ? index + 1 : '·'}
+            </span>
+            {index !== undefined ? `Tâche ${index + 1}` : 'Tâche'}
+            <span className="text-xs text-slate-400 font-normal">
+              {isExisting ? '(existante)' : '(nouvelle)'}
+            </span>
           </h4>
           {showRemoveButton && !isExisting && (
             <button
               onClick={onRemove}
-              className="text-slate-400 hover:text-red-600 hover:bg-red-50 p-1 rounded transition-colors"
+              className="
+                p-1.5 rounded-lg
+                text-slate-400 hover:text-red-500 hover:bg-red-50
+                active:scale-95 transition-all duration-150
+              "
             >
-              <Trash2 size={16} />
+              <Trash2 size={14} />
             </button>
           )}
         </div>
       )}
 
       {mode === 'edit' && (
-        <h5 className="font-bold text-blue-900">Éditer la tâche</h5>
+        <h5 className="font-bold text-teal-800 text-sm sm:text-base flex items-center gap-2">
+          <span className="w-1.5 h-5 rounded-full bg-teal-400 inline-block" />
+          Éditer la tâche
+        </h5>
       )}
 
       {/* ── Sprint date hint ────────────────────────────────────────────────── */}
       {sprint?.startDate && sprint?.endDate && (
-        <div className="flex items-center gap-2 text-xs text-slate-500 bg-slate-100 border border-slate-200 rounded-lg px-3 py-1.5">
-          <Calendar size={12} />
+        <div className="
+          flex items-center gap-2 text-xs
+          text-teal-700 bg-teal-50
+          border border-teal-100 rounded-xl
+          px-3 py-2
+        ">
+          <Calendar size={12} className="flex-shrink-0 text-teal-400" />
           <span>
             Plage du sprint{sprint.name ? ` "${sprint.name}"` : ''} :{' '}
             <strong>
@@ -148,8 +155,13 @@ function getMemberName(assignedTo: any, members: ProjectMember[]): string {
 
       {/* ── AI estimate display ─────────────────────────────────────────────── */}
       {safeHours(task.aiEstimatedHours ?? task.estimatedHours) > 0 && (
-        <div className="flex items-center gap-2 text-sm text-violet-700 bg-violet-50 border border-violet-200 rounded-lg px-3 py-2">
-          <Cpu size={14} />
+        <div className="
+          flex items-center gap-2 text-xs sm:text-sm
+          text-teal-700 bg-teal-50
+          border border-teal-200 rounded-xl
+          px-3 py-2
+        ">
+          <Cpu size={13} className="text-teal-500 flex-shrink-0" />
           <span>
             Estimation IA :{' '}
             <strong>
@@ -159,16 +171,16 @@ function getMemberName(assignedTo: any, members: ProjectMember[]): string {
         </div>
       )}
 
-      {/* ── Fields grid ────────────────────────────────────────────────────── */}
-      <div className="grid grid-cols-1 md:grid-cols-12 gap-3">
+      {/* ── Fields grid ─────────────────────────────────────────────────────── */}
+      <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-12 gap-3 sm:gap-4">
 
         {/* Title */}
-        <div className="md:col-span-6">
-          <label className="text-xs font-semibold text-slate-600 mb-1 block">Titre *</label>
+        <div className="sm:col-span-2 md:col-span-6">
+          <label className={tealLabel}>Titre <span className="text-red-400">*</span></label>
           <input
             type="text"
             placeholder="Titre de la tâche"
-            className={inputClass}
+            className={tealInput}
             value={task.title}
             onChange={(e) => onChange('title', e.target.value)}
             disabled={lock()}
@@ -177,22 +189,22 @@ function getMemberName(assignedTo: any, members: ProjectMember[]): string {
 
         {/* Assigned to */}
         <div className="md:col-span-3">
-          <label className="text-xs font-semibold text-slate-600 mb-1 block">
+          <label className={tealLabel}>
             Assigné à
             {task.assignedTo && (() => {
               const m = members.find((mb) => mb.id === Number(task.assignedTo));
               return m?.level ? (
-                <span className="ml-2 px-1.5 py-0.5 bg-indigo-100 text-indigo-700 rounded text-[10px] font-bold">
-                 <span>{getMemberName(task.assignedTo, members)}</span>
+                <span className="ml-2 px-1.5 py-0.5 bg-teal-100 text-teal-700 rounded text-[10px] font-bold">
+                  {getMemberName(task.assignedTo, members)}
                 </span>
               ) : null;
             })()}
           </label>
-          <select
-            className={inputClass}
-            value={task.assignedTo}
-            onChange={(e) => onChange('assignedTo', e.target.value)}
-          >
+<select
+  className={tealInput}
+  value={task.assignedTo ?? ''}
+  onChange={(e) => onChange('assignedTo', e.target.value)}
+>
             <option value="">Non assigné</option>
             {members.map((m) => (
               <option key={m.id} value={m.id}>
@@ -205,9 +217,9 @@ function getMemberName(assignedTo: any, members: ProjectMember[]): string {
 
         {/* Type */}
         <div className="md:col-span-3">
-          <label className="text-xs font-semibold text-slate-600 mb-1 block">Type</label>
+          <label className={tealLabel}>Type</label>
           <select
-            className={inputClass}
+            className={tealInput}
             value={task.type}
             onChange={(e) => onChange('type', e.target.value as TaskType)}
             disabled={lock()}
@@ -221,11 +233,11 @@ function getMemberName(assignedTo: any, members: ProjectMember[]): string {
         </div>
 
         {/* Description */}
-        <div className="md:col-span-12">
-          <label className="text-xs font-semibold text-slate-600 mb-1 block">Description</label>
+        <div className="sm:col-span-2 md:col-span-12">
+          <label className={tealLabel}>Description</label>
           <textarea
             placeholder="Description technique…"
-            className={`${inputClass} resize-none`}
+            className={`${tealInput} resize-none`}
             rows={2}
             value={task.description}
             onChange={(e) => onChange('description', e.target.value)}
@@ -235,9 +247,9 @@ function getMemberName(assignedTo: any, members: ProjectMember[]): string {
 
         {/* Status */}
         <div className="md:col-span-2">
-          <label className="text-xs font-semibold text-slate-600 mb-1 block">Statut</label>
+          <label className={tealLabel}>Statut</label>
           <select
-            className={inputClass}
+            className={tealInput}
             value={task.status}
             onChange={(e) => onChange('status', e.target.value as TaskStatus)}
           >
@@ -251,9 +263,9 @@ function getMemberName(assignedTo: any, members: ProjectMember[]): string {
 
         {/* Priority */}
         <div className="md:col-span-2">
-          <label className="text-xs font-semibold text-slate-600 mb-1 block">Priorité</label>
+          <label className={tealLabel}>Priorité</label>
           <select
-            className={inputClass}
+            className={tealInput}
             value={task.priority}
             onChange={(e) => onChange('priority', e.target.value as TaskPriority)}
             disabled={lock()}
@@ -267,10 +279,10 @@ function getMemberName(assignedTo: any, members: ProjectMember[]): string {
 
         {/* Story Points */}
         <div className="md:col-span-2">
-          <label className="text-xs font-semibold text-slate-600 mb-1 block">Story Points</label>
+          <label className={tealLabel}>Story Points</label>
           <input
             type="number" min="0"
-            className={inputClass}
+            className={tealInput}
             value={task.storyPoints}
             onChange={(e) => onChange('storyPoints', Number(e.target.value))}
             disabled={lock()}
@@ -279,10 +291,10 @@ function getMemberName(assignedTo: any, members: ProjectMember[]): string {
 
         {/* Complexity */}
         <div className="md:col-span-2">
-          <label className="text-xs font-semibold text-slate-600 mb-1 block">Complexité (1-5)</label>
+          <label className={tealLabel}>Complexité (1-5)</label>
           <input
             type="number" min="1" max="5"
-            className={inputClass}
+            className={tealInput}
             value={task.complexityScore}
             onChange={(e) => onChange('complexityScore', Number(e.target.value))}
             disabled={lock()}
@@ -291,26 +303,26 @@ function getMemberName(assignedTo: any, members: ProjectMember[]): string {
 
         {/* Risk */}
         <div className="md:col-span-2">
-          <label className="text-xs font-semibold text-slate-600 mb-1 block">Risque (1-5)</label>
+          <label className={tealLabel}>Risque (1-5)</label>
           <input
             type="number" min="1" max="5"
-            className={inputClass}
+            className={tealInput}
             value={task.riskLevel}
             onChange={(e) => onChange('riskLevel', Number(e.target.value))}
             disabled={lock()}
           />
         </div>
 
-        {/* Start date — clamped to sprint bounds */}
+        {/* Start date */}
         <div className="md:col-span-3">
-          <label className="text-xs font-semibold text-slate-600 mb-1 block flex items-center gap-1">
-            <Calendar size={12} /> Début
+          <label className={`${tealLabel} flex items-center gap-1`}>
+            <Calendar size={11} className="text-teal-400" /> Début
           </label>
           <input
             type="date"
             min={sprintMin}
             max={sprintMax}
-            className={`${inputClass} ${fieldError('scheduledStartDate') ? errorBorder : ''}`}
+            className={`${tealInput} ${fieldError('scheduledStartDate') ? errorBorder : ''}`}
             value={task.scheduledStartDate ?? ''}
             onChange={(e) => onChange('scheduledStartDate', e.target.value)}
             disabled={lock()}
@@ -320,16 +332,16 @@ function getMemberName(assignedTo: any, members: ProjectMember[]): string {
           )}
         </div>
 
-        {/* End date — clamped to sprint bounds */}
+        {/* End date */}
         <div className="md:col-span-3">
-          <label className="text-xs font-semibold text-slate-600 mb-1 block flex items-center gap-1">
-            <Calendar size={12} /> Fin
+          <label className={`${tealLabel} flex items-center gap-1`}>
+            <Calendar size={11} className="text-cyan-400" /> Fin
           </label>
           <input
             type="date"
             min={task.scheduledStartDate || sprintMin}
             max={sprintMax}
-            className={`${inputClass} ${fieldError('scheduledEndDate') ? errorBorder : ''}`}
+            className={`${tealInput} ${fieldError('scheduledEndDate') ? errorBorder : ''}`}
             value={task.scheduledEndDate ?? ''}
             onChange={(e) => onChange('scheduledEndDate', e.target.value)}
             disabled={lock()}
@@ -341,10 +353,10 @@ function getMemberName(assignedTo: any, members: ProjectMember[]): string {
 
         {/* Dependencies */}
         <div className="md:col-span-2">
-          <label className="text-xs font-semibold text-slate-600 mb-1 block">Dépendances</label>
+          <label className={tealLabel}>Dépendances</label>
           <input
             type="text" placeholder="Task #12"
-            className={inputClass}
+            className={tealInput}
             value={task.dependencies}
             onChange={(e) => onChange('dependencies', e.target.value)}
             disabled={lock()}
@@ -353,10 +365,12 @@ function getMemberName(assignedTo: any, members: ProjectMember[]): string {
 
         {/* Risks text */}
         <div className="md:col-span-4">
-          <label className="text-xs font-semibold text-red-600 mb-1 block">Risques</label>
+          <label className="block text-xs font-semibold text-red-500 mb-1 uppercase tracking-wide">
+            Risques
+          </label>
           <input
             type="text" placeholder="Risques identifiés…"
-            className={inputClass}
+            className={tealInput}
             value={task.risks}
             onChange={(e) => onChange('risks', e.target.value)}
           />
@@ -364,22 +378,32 @@ function getMemberName(assignedTo: any, members: ProjectMember[]): string {
 
         {/* Notes */}
         <div className="md:col-span-4">
-          <label className="text-xs font-semibold text-slate-600 mb-1 block">Notes</label>
+          <label className={tealLabel}>Notes</label>
           <input
             type="text" placeholder="Notes additionnelles…"
-            className={inputClass}
+            className={tealInput}
             value={task.additionalNotes}
             onChange={(e) => onChange('additionalNotes', e.target.value)}
           />
         </div>
       </div>
 
-      {/* ── Save / Cancel (edit mode) ───────────────────────────────────────── */}
+      {/* ── Save / Cancel (edit mode) ────────────────────────────────────────── */}
       {mode === 'edit' && (
-        <div className="flex justify-end gap-2 pt-3">
+        <div className="
+          flex flex-col-reverse sm:flex-row sm:justify-end
+          gap-2 pt-3 border-t border-teal-100
+        ">
           <button
             onClick={onCancel}
-            className="px-3 py-1.5 bg-slate-200 text-slate-700 rounded-lg font-semibold hover:bg-slate-300 transition-colors text-sm"
+            className="
+              w-full sm:w-auto
+              px-4 py-2 rounded-xl font-semibold text-sm
+              text-slate-600 bg-white
+              border border-slate-200
+              hover:bg-slate-50 hover:border-slate-300
+              active:scale-95 transition-all duration-150
+            "
           >
             Annuler
           </button>
@@ -387,8 +411,16 @@ function getMemberName(assignedTo: any, members: ProjectMember[]): string {
             onClick={onSave}
             disabled={loading || estimating || hasDateErrors}
             title={hasDateErrors ? 'Corrigez les erreurs de dates avant de sauvegarder.' : undefined}
-            className="px-3 py-1.5 bg-blue-600 text-white rounded-lg font-semibold hover:bg-blue-700
-                       disabled:bg-blue-300 disabled:cursor-not-allowed transition-colors text-sm flex items-center gap-1.5"
+            className="
+              w-full sm:w-auto
+              flex items-center justify-center gap-1.5
+              px-4 py-2 rounded-xl font-semibold text-sm
+              bg-teal-500 text-white
+              hover:bg-teal-600
+              disabled:bg-teal-200 disabled:text-teal-400 disabled:cursor-not-allowed
+              shadow-[0_2px_8px_rgba(20,184,166,0.25)]
+              active:scale-95 transition-all duration-150
+            "
           >
             {estimating ? (
               <><Loader2 size={14} className="animate-spin" />Estimation IA…</>

@@ -1,11 +1,9 @@
 'use client';
 // ─── TaskCard.tsx ─────────────────────────────────────────────────────────────
-// Read-only task row with edit/delete buttons.
-// Renders the inline <TaskForm> when this task is being edited.
-// Passes sprint date bounds to TaskForm so date validation works in edit mode.
+// Read-only task row — turquoise/light theme, mobile-first responsive.
 
 import React from 'react';
-import { Edit2, Trash2 } from 'lucide-react';
+import { Edit2, Trash2, Calendar, User, Zap, AlertTriangle } from 'lucide-react';
 import type { Task, ProjectMember, Sprint } from '@/Dashboard/project/[id]/sprintslist/services/types';
 import { TaskForm } from '@/Dashboard/project/[id]/sprintslist/components/TaskForm';
 import { safeHours } from '@/Dashboard/project/[id]/sprintslist/services/estimationService';
@@ -20,7 +18,6 @@ interface TaskCardProps {
   task: Task;
   members: ProjectMember[];
   sprintId: number;
-  /** Parent sprint — used to constrain task date inputs */
   sprint: Pick<Sprint, 'startDate' | 'endDate' | 'name'>;
   isEditing: boolean;
   editingData: Task | null;
@@ -33,173 +30,202 @@ interface TaskCardProps {
   onDelete: (taskId: number, sprintId: number) => void;
 }
 
-export const TaskCard: React.FC<TaskCardProps> = ({
-  task,
-  members,
-  sprintId,
-  sprint,
-  isEditing,
-  editingData,
-  loading,
-  estimating,
-  onStartEdit,
-  onEditChange,
-  onSave,
-  onCancelEdit,
-  onDelete,
-}) => {
+/* ── helpers ────────────────────────────────────────────────────────────────── */
 
-  // Utilitaire robuste pour afficher le nom du membre assigné
-  function getMemberName(assignedTo: any, members: ProjectMember[]): string {
-    if (!assignedTo) return '—';
-
-    // Si assignedTo est déjà un objet complet avec prénom/nom ou name
-    if (typeof assignedTo === 'object' && (assignedTo.firstName || assignedTo.name || assignedTo.lastName)) {
-      const nameFromObj = assignedTo.name ?? `${assignedTo.firstName ?? ''} ${assignedTo.lastName ?? ''}`.trim();
-      return (nameFromObj || '—').trim();
-    }
-
-    // Extraire un id possible (gère { id }, "5", 5)
-    const rawId = typeof assignedTo === 'object' ? assignedTo.id : assignedTo;
-    if (rawId === undefined || rawId === null) return '—';
-
-    const idStr = String(rawId);
-
-    // Cherche dans members en normalisant les types (string/number)
-    const member = members.find(m => String(m.id) === idStr);
-    if (!member) return '—';
-
-    const memberName = member.name ?? `${member.firstName ?? ''} ${member.lastName ?? ''}`.trim();
-    return (memberName || '—').trim();
+function getMemberName(assignedTo: any, members: ProjectMember[]): string {
+  if (!assignedTo) return '—';
+  if (typeof assignedTo === 'object' && (assignedTo.firstName || assignedTo.name || assignedTo.lastName)) {
+    const n = assignedTo.name ?? `${assignedTo.firstName ?? ''} ${assignedTo.lastName ?? ''}`.trim();
+    return (n || '—').trim();
   }
+  const rawId = typeof assignedTo === 'object' ? assignedTo.id : assignedTo;
+  if (rawId === undefined || rawId === null) return '—';
+  const member = members.find(m => String(m.id) === String(rawId));
+  if (!member) return '—';
+  const name = member.name ?? `${member.firstName ?? ''} ${member.lastName ?? ''}`.trim();
+  return (name || '—').trim();
+}
 
-  return (
-    <div className="bg-white border border-slate-200 rounded-lg overflow-hidden">
-      <div className="p-4 hover:shadow-sm transition-shadow">
-        <div className="flex items-start justify-between gap-4">
+/* ── component ──────────────────────────────────────────────────────────────── */
 
-          {/* ── Task info ─────────────────────────────────────────────── */}
-          <div className="flex-1 min-w-0">
-            <h5 className="font-semibold text-slate-800 mb-2">{task.title}</h5>
-            {task.description && (
-              <p className="text-sm text-slate-600 mb-3">{task.description}</p>
-            )}
+export const TaskCard: React.FC<TaskCardProps> = ({
+  task, members, sprintId, sprint,
+  isEditing, editingData, loading, estimating,
+  onStartEdit, onEditChange, onSave, onCancelEdit, onDelete,
+}) => (
+  <div
+    className="
+      bg-white
+      border border-teal-100
+      rounded-xl overflow-hidden
+      shadow-[0_1px_6px_rgba(20,184,166,0.08)]
+      hover:shadow-[0_3px_16px_rgba(20,184,166,0.15)]
+      hover:border-teal-200
+      transition-all duration-200
+    "
+  >
+    <div className="p-4 sm:p-5">
+      <div className="flex items-start gap-3">
 
-            {/* Badges */}
-            <div className="flex flex-wrap gap-2 items-center mb-3">
-              <span className={`text-xs font-semibold px-2 py-1 rounded ${getStatusBadgeColor(task.status)}`}>
-                {task.status}
-              </span>
-              <span className="text-xs font-semibold px-2 py-1 rounded bg-slate-100 text-slate-700">
-                {task.type}
-              </span>
-              <span className={`text-xs font-bold ${getPriorityColor(task.priority)}`}>
-                {task.priority}
-              </span>
-              <span className="text-xs bg-orange-100 text-orange-700 px-2 py-1 rounded font-semibold">
-                {task.storyPoints} pts
-              </span>
-              {safeHours(task.aiEstimatedHours ?? task.estimatedHours) > 0 && (
-                <AiEstimateBadge hours={safeHours(task.aiEstimatedHours ?? task.estimatedHours)} />
-              )}
-            </div>
+        {/* ── Left accent bar ──────────────────────────────────────────── */}
+        <div className="hidden sm:block w-1 self-stretch rounded-full bg-gradient-to-b from-teal-400 to-cyan-300 flex-shrink-0" />
 
-            {/* Delay */}
-            {task.delayHours !== undefined && (
-              <div
-                className={`text-xs font-semibold px-2 py-1 rounded mb-3 inline-block ${
-                  task.delayHours > 0
-                    ? 'bg-red-100 text-red-700'
-                    : task.delayHours < 0
-                    ? 'bg-green-100 text-green-700'
-                    : 'bg-blue-100 text-blue-700'
-                }`}
+        {/* ── Task info ────────────────────────────────────────────────── */}
+        <div className="flex-1 min-w-0">
+
+          {/* Title + action buttons */}
+          <div className="flex items-start justify-between gap-2 mb-2">
+            <h5 className="font-semibold text-slate-800 text-sm sm:text-base leading-snug">
+              {task.title}
+            </h5>
+            <div className="flex items-center gap-1.5 flex-shrink-0">
+              <button
+                onClick={() => onStartEdit(task, sprintId)}
+                title="Éditer"
+                className="
+                  p-1.5 rounded-lg
+                  bg-teal-50 text-teal-600
+                  hover:bg-teal-100 hover:text-teal-700
+                  active:scale-95
+                  transition-all duration-150
+                "
               >
-                {getDelayStatus(task.delayHours)}
+                <Edit2 size={14} />
+              </button>
+              <button
+                onClick={() => onDelete(task.id!, sprintId)}
+                title="Supprimer"
+                className="
+                  p-1.5 rounded-lg
+                  bg-red-50 text-red-400
+                  hover:bg-red-100 hover:text-red-600
+                  active:scale-95
+                  transition-all duration-150
+                "
+              >
+                <Trash2 size={14} />
+              </button>
+            </div>
+          </div>
+
+          {/* Description */}
+          {task.description && (
+            <p className="text-xs sm:text-sm text-slate-500 mb-3 leading-relaxed">
+              {task.description}
+            </p>
+          )}
+
+          {/* ── Badge row ──────────────────────────────────────────────── */}
+          <div className="flex flex-wrap gap-1.5 items-center mb-3">
+            <span className={`text-xs font-semibold px-2 py-0.5 rounded-full ${getStatusBadgeColor(task.status)}`}>
+              {task.status}
+            </span>
+            <span className="text-xs font-semibold px-2 py-0.5 rounded-full bg-cyan-50 text-cyan-700 ring-1 ring-cyan-100">
+              {task.type}
+            </span>
+            <span className={`text-xs font-bold ${getPriorityColor(task.priority)}`}>
+              {task.priority}
+            </span>
+            <span className="text-xs bg-teal-50 text-teal-700 px-2 py-0.5 rounded-full font-semibold ring-1 ring-teal-100">
+              {task.storyPoints} pts
+            </span>
+            {safeHours(task.aiEstimatedHours ?? task.estimatedHours) > 0 && (
+              <AiEstimateBadge hours={safeHours(task.aiEstimatedHours ?? task.estimatedHours)} />
+            )}
+          </div>
+
+          {/* ── Delay badge ────────────────────────────────────────────── */}
+          {task.delayHours !== undefined && (
+            <div
+              className={`
+                inline-flex items-center gap-1
+                text-xs font-semibold px-2.5 py-1 rounded-full mb-3
+                ${task.delayHours > 0
+                  ? 'bg-red-50 text-red-600 ring-1 ring-red-100'
+                  : task.delayHours < 0
+                  ? 'bg-emerald-50 text-emerald-600 ring-1 ring-emerald-100'
+                  : 'bg-teal-50 text-teal-600 ring-1 ring-teal-100'}
+              `}
+            >
+              <AlertTriangle size={11} />
+              {getDelayStatus(task.delayHours)}
+            </div>
+          )}
+
+          {/* ── Meta grid ──────────────────────────────────────────────── */}
+          <div className="
+            grid grid-cols-2 sm:grid-cols-4
+            gap-x-3 gap-y-1.5
+            pt-2.5 border-t border-teal-50
+            text-xs
+          ">
+            {task.scheduledStartDate && (
+              <div className="flex items-center gap-1 text-slate-500">
+                <Calendar size={11} className="text-teal-400 flex-shrink-0" />
+                <span>Début:</span>
+                <span className="font-semibold text-slate-700 truncate">
+                  {new Date(task.scheduledStartDate).toLocaleDateString('fr-FR')}
+                </span>
               </div>
             )}
-
-            {/* Meta grid */}
-            <div className="grid grid-cols-2 md:grid-cols-4 gap-2 text-xs pt-2 border-t border-slate-100">
-              {task.scheduledStartDate && (
-                <div>
-                  <span className="text-slate-500">Début:</span>
-                  <span className="ml-1 font-semibold text-slate-700">
-                    {new Date(task.scheduledStartDate).toLocaleDateString('fr-FR')}
-                  </span>
-                </div>
-              )}
-              {task.scheduledEndDate && (
-                <div>
-                  <span className="text-slate-500">Fin:</span>
-                  <span className="ml-1 font-semibold text-slate-700">
-                    {new Date(task.scheduledEndDate).toLocaleDateString('fr-FR')}
-                  </span>
-                </div>
-              )}
-              {!!task.complexityScore && (
-                <div>
-                  <span className="text-slate-500">Complexité:</span>
-                  <span className="ml-1 font-semibold text-slate-700">{task.complexityScore}/5</span>
-                </div>
-              )}
-              {!!task.riskLevel && (
-                <div>
-                  <span className="text-slate-500">Risque:</span>
-                  <span className="ml-1 font-semibold text-slate-700">{task.riskLevel}/5</span>
-                </div>
-              )}
-              {task.dependencies && (
-                <div>
-                  <span className="text-slate-500">Dépendances:</span>
-                  <span className="ml-1 font-semibold text-slate-700">{task.dependencies}</span>
-                </div>
-              )}
-              {task.assignedTo && (
-                <div>
-                  <span className="text-slate-500">Assigné:</span>
-                  <span className="ml-1 font-semibold text-slate-700">
-                    <span>{getMemberName(task.assignedTo, members)}</span>
-                  </span>
-                </div>
-              )}
-            </div>
-          </div>
-
-          {/* ── Actions ──────────────────────────────────────────────── */}
-          <div className="flex items-center gap-2 flex-shrink-0">
-            <button
-              onClick={() => onStartEdit(task, sprintId)}
-              className="p-2 bg-indigo-100 text-indigo-700 hover:bg-indigo-200 rounded-lg transition-colors"
-              title="Éditer"
-            >
-              <Edit2 size={16} />
-            </button>
-            <button
-              onClick={() => onDelete(task.id!, sprintId)}
-              className="p-2 bg-red-100 text-red-700 hover:bg-red-200 rounded-lg transition-colors"
-              title="Supprimer"
-            >
-              <Trash2 size={16} />
-            </button>
+            {task.scheduledEndDate && (
+              <div className="flex items-center gap-1 text-slate-500">
+                <Calendar size={11} className="text-cyan-400 flex-shrink-0" />
+                <span>Fin:</span>
+                <span className="font-semibold text-slate-700 truncate">
+                  {new Date(task.scheduledEndDate).toLocaleDateString('fr-FR')}
+                </span>
+              </div>
+            )}
+            {!!task.complexityScore && (
+              <div className="flex items-center gap-1 text-slate-500">
+                <Zap size={11} className="text-amber-400 flex-shrink-0" />
+                <span>Complexité:</span>
+                <span className="font-semibold text-slate-700">{task.complexityScore}/5</span>
+              </div>
+            )}
+            {!!task.riskLevel && (
+              <div className="flex items-center gap-1 text-slate-500">
+                <AlertTriangle size={11} className="text-orange-400 flex-shrink-0" />
+                <span>Risque:</span>
+                <span className="font-semibold text-slate-700">{task.riskLevel}/5</span>
+              </div>
+            )}
+            {task.dependencies && (
+              <div className="flex items-center gap-1 text-slate-500 col-span-2 sm:col-span-1">
+                <span>Dépendances:</span>
+                <span className="font-semibold text-slate-700 truncate">{task.dependencies}</span>
+              </div>
+            )}
+            {task.assignedTo && (
+              <div className="flex items-center gap-1 text-slate-500">
+                <User size={11} className="text-teal-400 flex-shrink-0" />
+                <span>Assigné:</span>
+                <span className="font-semibold text-slate-700 truncate">
+                  {getMemberName(task.assignedTo, members)}
+                </span>
+              </div>
+            )}
           </div>
         </div>
+      </div>
 
-        {/* ── Inline edit form ─────────────────────────────────────── */}
-        {isEditing && editingData && (
+      {/* ── Inline edit form ─────────────────────────────────────────────── */}
+      {isEditing && editingData && (
+        <div className="mt-4 pt-4 border-t border-teal-100">
           <TaskForm
             task={editingData}
             members={members}
             mode="edit"
-            sprint={sprint}          // ← sprint bounds for date validation
+            sprint={sprint}
             loading={loading}
             estimating={estimating}
             onChange={onEditChange}
             onSave={onSave}
             onCancel={onCancelEdit}
           />
-        )}
-      </div>
+        </div>
+      )}
     </div>
-  );
-};
+  </div>
+);
