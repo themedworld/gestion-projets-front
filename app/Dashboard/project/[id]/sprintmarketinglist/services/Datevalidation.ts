@@ -1,101 +1,120 @@
-// ─── dateValidation.ts ───────────────────────────────────────────────────────
-// Centralised date-validation helpers shared by form components and the page.
-// All functions return a string (error message) or null (valid).
+// ─── Datevalidation.ts ────────────────────────────────────────────────────────
+// Règles :
+//   1. Sprint doit être DANS les bornes du projet
+//   2. Deux sprints ne peuvent pas se chevaucher (overlap ou union)
+//   3. Tâche doit être DANS les bornes du sprint qui la contient
 
-import type { SprintMarketing } from '@/Dashboard/project/[id]/sprintmarketinglist/services/Types';
+import type { SprintMarketing } from './Types';
 
-// ── Low-level helpers ─────────────────────────────────────────────────────────
+// ─── Helpers ──────────────────────────────────────────────────────────────────
 
-/** Convert any date-ish value to a plain Date (strips time) */
-export const toDay = (v: string | Date | null | undefined): Date | null => {
+const toDay = (v: string | null | undefined): Date | null => {
   if (!v) return null;
   const d = new Date(v);
-  if (isNaN(d.getTime())) return null;
-  return new Date(d.getFullYear(), d.getMonth(), d.getDate());
+  d.setHours(0, 0, 0, 0);
+  return isNaN(d.getTime()) ? null : d;
 };
 
 const fmt = (d: Date) =>
   d.toLocaleDateString('fr-FR', { day: '2-digit', month: '2-digit', year: 'numeric' });
 
-// ── Task date validation ──────────────────────────────────────────────────────
-
+// ─── 1. SPRINT DATE VALIDATION ────────────────────────────────────────────────
 /**
- * Validates a task's dates against its parent sprint.
- * Returns an error message or null.
+ * Valide les dates d'un sprint :
+ * - start < end
+ * - [start, end] ⊆ [projectStart, projectEnd]
+ * - Pas de chevauchement avec les autres sprints (self exclu par id)
+ *
+ * Retourne un message d'erreur ou null si tout est OK.
  */
-export const validateTaskDates = (
-  taskStart: string | Date | null | undefined,
-  taskEnd:   string | Date | null | undefined,
-  sprintStart: string | Date | null | undefined,
-  sprintEnd:   string | Date | null | undefined,
-): string | null => {
-  const ts  = toDay(taskStart);
-  const te  = toDay(taskEnd);
-  const ss  = toDay(sprintStart);
-  const se  = toDay(sprintEnd);
+export function validateSprintDates(
+  selfId:           number | undefined,
+  startDate:        string | null | undefined,
+  endDate:          string | null | undefined,
+  projectStartDate: string | null | undefined,
+  projectEndDate:   string | null | undefined,
+  allSprints:       SprintMarketing[],
+): string | null {
 
-  // Task internal consistency
-  if (ts && te && ts > te)
-    return 'La date de début de la tâche doit être antérieure à sa date de fin.';
+  const start = toDay(startDate);
+  const end   = toDay(endDate);
 
-  // Task must be within sprint bounds
-  if (ts && ss && ts < ss)
-    return `La tâche ne peut pas commencer avant le sprint (${fmt(ss)}).`;
-  if (ts && se && ts > se)
-    return `La tâche ne peut pas commencer après la fin du sprint (${fmt(se)}).`;
-  if (te && ss && te < ss)
-    return `La tâche ne peut pas se terminer avant le début du sprint (${fmt(ss)}).`;
-  if (te && se && te > se)
-    return `La tâche ne peut pas dépasser la fin du sprint (${fmt(se)}).`;
+  // ── Présence ────────────────────────────────────────────────────────────────
+  if (!start) return 'La date de début du sprint est requise.';
+  if (!end)   return 'La date de fin du sprint est requise.';
 
-  return null;
-};
+  // ── Cohérence interne ────────────────────────────────────────────────────────
+  if (start > end)
+    return 'La date de début du sprint doit être antérieure à la date de fin.';
 
-// ── Sprint date validation ────────────────────────────────────────────────────
+  // ── Bornes du projet ─────────────────────────────────────────────────────────
+  const projStart = toDay(projectStartDate);
+  const projEnd   = toDay(projectEndDate);
 
-/**
- * Validates a sprint's dates:
- *   1. start < end
- *   2. Both within project bounds (if provided)
- *   3. No overlap with any existing sprint (excluding itself by id)
- */
-export const validateSprintDates = (
-  sprintId:     number | undefined,
-  sprintStart:  string | Date | null | undefined,
-  sprintEnd:    string | Date | null | undefined,
-  projectStart: string | Date | null | undefined,
-  projectEnd:   string | Date | null | undefined,
-  allSprints:   SprintMarketing[] = [],
-): string | null => {
-  const ss = toDay(sprintStart);
-  const se = toDay(sprintEnd);
-  const ps = toDay(projectStart);
-  const pe = toDay(projectEnd);
+  if (projStart && start < projStart)
+    return `Le sprint ne peut pas commencer avant le projet (${fmt(projStart)}).`;
 
-  if (!ss || !se) return null; // incomplete — other validators handle required
+  if (projEnd && end > projEnd)
+    return `Le sprint ne peut pas se terminer après la fin du projet (${fmt(projEnd)}).`;
 
-  // 1. Internal consistency
-  if (ss >= se)
-    return 'La date de début du sprint doit être antérieure à sa date de fin.';
+  // ── Chevauchement avec les autres sprints ────────────────────────────────────
+  for (const sp of allSprints) {
+    if (sp.id === selfId) continue;          // exclure le sprint lui-même (mode édition)
 
-  // 2. Within project bounds
-  if (ps && ss < ps)
-    return `Le sprint ne peut pas commencer avant le projet (${fmt(ps)}).`;
-  if (pe && se > pe)
-    return `Le sprint ne peut pas se terminer après le projet (${fmt(pe)}).`;
+    const spStart = toDay(sp.startDate);
+    const spEnd   = toDay(sp.endDate);
 
-  // 3. No overlap with other sprints
-  for (const other of allSprints) {
-    if (other.id && other.id === sprintId) continue; // skip self
-    const os = toDay(other.startDate);
-    const oe = toDay(other.endDate);
-    if (!os || !oe) continue;
+    if (!spStart || !spEnd) continue;
 
-    // Overlap condition: ss < oe && se > os  (strict — touching is NOT allowed)
-    if (ss < oe && se > os) {
-      return `Ce sprint chevauche le sprint "${other.name}" (${fmt(os)} – ${fmt(oe)}). Les sprints ne peuvent pas se chevaucher ni se toucher.`;
-    }
+    // Overlap : [A.start, A.end] ∩ [B.start, B.end] ≠ ∅
+    //           ⟺  A.start <= B.end  &&  B.start <= A.end
+    const overlaps = start <= spEnd && spStart <= end;
+
+    if (overlaps)
+      return (
+        `Ce sprint chevauche le sprint "${sp.name}" ` +
+        `(${fmt(spStart)} – ${fmt(spEnd)}). ` +
+        `Deux sprints ne peuvent pas couvrir la même période.`
+      );
   }
 
   return null;
-};
+}
+
+// ─── 2. TASK DATE VALIDATION ──────────────────────────────────────────────────
+/**
+ * Valide les dates d'une tâche :
+ * - start < end
+ * - [taskStart, taskEnd] ⊆ [sprintStart, sprintEnd]
+ *
+ * Retourne un message d'erreur ou null si tout est OK.
+ */
+export function validateTaskDates(
+  taskStart:   string | null | undefined,
+  taskEnd:     string | null | undefined,
+  sprintStart: string | null | undefined,
+  sprintEnd:   string | null | undefined,
+): string | null {
+
+  const tStart  = toDay(taskStart);
+  const tEnd    = toDay(taskEnd);
+  const spStart = toDay(sprintStart);
+  const spEnd   = toDay(sprintEnd);
+
+  // ── Si aucune date de tâche → pas d'erreur (champs optionnels) ──────────────
+  if (!tStart && !tEnd) return null;
+
+  // ── Cohérence interne ────────────────────────────────────────────────────────
+  if (tStart && tEnd && tStart > tEnd)
+    return 'La date de début de la tâche doit être antérieure à sa date de fin.';
+
+  // ── Borne inférieure du sprint ───────────────────────────────────────────────
+  if (tStart && spStart && tStart < spStart)
+    return `La tâche ne peut pas commencer avant le sprint (${fmt(spStart)}).`;
+
+  // ── Borne supérieure du sprint ───────────────────────────────────────────────
+  if (tEnd && spEnd && tEnd > spEnd)
+    return `La tâche ne peut pas se terminer après le sprint (${fmt(spEnd)}).`;
+
+  return null;
+}

@@ -71,7 +71,7 @@ function getDomainLinks(projectId: number, domain: string): DomainLinks {
   const b = `/Dashboard/project/${projectId}`;
   switch (domain) {
     case "IT":         return { details: `${b}/projectmanager_details`, sprints: `${b}/sprintslist`,          info: `${b}/sprintslist/projectsta` };
-    case "Marketing":  return { details: `${b}/projectmanager_details`,              sprints: `${b}/sprintmarketinglist`,  info: `${b}/marketing/analytics` };
+    case "Marketing":  return { details: `${b}/projectmanager_details`,              sprints: `${b}/sprintmarketinglist`,  info: `${b}/sprintmarketinglist/Dashboard` };
     case "CallCenter": return { details: `${b}/projectmanager_details`,             sprints: `${b}/sprintcallcenterlist`,   info: `${b}/callcenter/metrics` };
     default:           return { details: b,                             sprints: `${b}/sprintslist`,          info: `${b}/projectinfo` };
   }

@@ -1,12 +1,13 @@
 'use client';
 // ─── MarketingTaskCard.tsx ────────────────────────────────────────────────────
-// Read-only task row with inline edit via MarketingTaskForm.
+// Design: Light + Turquoise — responsive mobile/desktop
 
 import React from 'react';
-import { Edit2, Trash2, Cpu, DollarSign, Calendar } from 'lucide-react';
+import { Edit2, Trash2, Cpu, DollarSign, Calendar, User, Tag, Radio } from 'lucide-react';
 import type {
   TaskMarketing,
   ProjectMember,
+  SprintMarketing,
 } from '@/Dashboard/project/[id]/sprintmarketinglist/services/Types';
 import { MarketingTaskForm } from './Marketingtaskform';
 import {
@@ -14,9 +15,11 @@ import {
   safeNum,
 } from '@/Dashboard/project/[id]/sprintmarketinglist/services/Marketingestimationservice';
 
+// ─── Props ────────────────────────────────────────────────────────────────────
 interface MarketingTaskCardProps {
   task: TaskMarketing;
   sprintId: number;
+  sprint?: SprintMarketing;
   members: ProjectMember[];
   isEditing: boolean;
   editingData: TaskMarketing | null;
@@ -30,27 +33,29 @@ interface MarketingTaskCardProps {
   onDelete: (taskId: number, sprintId: number) => void;
 }
 
-const STATUS_STYLE: Record<string, string> = {
-  TO_DO:       'bg-slate-100 text-slate-700',
-  IN_PROGRESS: 'bg-blue-100 text-blue-700',
-  IN_REVIEW:   'bg-amber-100 text-amber-700',
-  DONE:        'bg-emerald-100 text-emerald-700',
-  BLOCKED:     'bg-red-100 text-red-700',
+// ─── Design tokens ────────────────────────────────────────────────────────────
+const STATUS_CFG: Record<string, { label: string; cls: string; dot: string }> = {
+  TO_DO:       { label: 'À faire',     cls: 'bg-slate-50  text-slate-600  border-slate-200',  dot: 'bg-slate-400'  },
+  IN_PROGRESS: { label: 'En cours',    cls: 'bg-cyan-50   text-cyan-700   border-cyan-200',   dot: 'bg-cyan-500'   },
+  IN_REVIEW:   { label: 'En révision', cls: 'bg-amber-50  text-amber-700  border-amber-200',  dot: 'bg-amber-400'  },
+  DONE:        { label: 'Terminé',     cls: 'bg-teal-50   text-teal-700   border-teal-200',   dot: 'bg-teal-500'   },
+  BLOCKED:     { label: 'Bloqué',      cls: 'bg-rose-50   text-rose-600   border-rose-200',   dot: 'bg-rose-500'   },
 };
 
-const PRIORITY_COLOR: Record<string, string> = {
-  LOW:      'text-emerald-600',
-  MEDIUM:   'text-amber-600',
-  HIGH:     'text-orange-600',
-  CRITICAL: 'text-red-600',
+const PRIORITY_CFG: Record<string, { label: string; cls: string }> = {
+  LOW:      { label: 'Basse',    cls: 'text-teal-600   bg-teal-50   border-teal-200'   },
+  MEDIUM:   { label: 'Moyenne',  cls: 'text-cyan-700   bg-cyan-50   border-cyan-200'   },
+  HIGH:     { label: 'Haute',    cls: 'text-orange-600 bg-orange-50 border-orange-200' },
+  CRITICAL: { label: 'Critique', cls: 'text-rose-600   bg-rose-50   border-rose-200'   },
 };
 
 const TYPE_EMOJI: Record<string, string> = {
-  SEO: '🔍', PPC: '💰', EMAIL: '📧', SOCIAL: '📱', CONTENT: '✍️',
-  VIDEO: '🎥', INFLUENCER: '🌟', AFFILIATE: '🤝', PR: '📢', EVENT: '🎪', OTHER: '📌',
+  ANALYTICS:        '📊', CAMPAIGN: '📣', CONTENT_CREATION: '✍️',
+  COPYWRITING:      '🖊️', DESIGN: '🎨',  EMAIL: '📧',
+  PPC:              '💰', SEO: '🔍',     SOCIAL_MEDIA: '📱',
+  OTHER:            '📌',
 };
 
-// Format date locale FR (ex: 12 jan. 2026)
 const fmtDate = (d?: string | null): string => {
   if (!d) return '';
   try {
@@ -60,9 +65,22 @@ const fmtDate = (d?: string | null): string => {
   } catch { return ''; }
 };
 
+// ─── Small reusable meta row item ─────────────────────────────────────────────
+const MetaItem: React.FC<{ icon: React.ReactNode; label: string; value: string; valueClass?: string }> = ({
+  icon, label, value, valueClass = 'text-slate-700',
+}) => (
+  <div className="flex items-center gap-1.5 min-w-0">
+    <span className="text-cyan-400 shrink-0">{icon}</span>
+    <span className="text-xs text-slate-400 shrink-0">{label} :</span>
+    <span className={`text-xs font-semibold truncate ${valueClass}`}>{value}</span>
+  </div>
+);
+
+// ─── Component ────────────────────────────────────────────────────────────────
 export const MarketingTaskCard: React.FC<MarketingTaskCardProps> = ({
   task,
   sprintId,
+  sprint,
   members,
   isEditing,
   editingData,
@@ -75,191 +93,213 @@ export const MarketingTaskCard: React.FC<MarketingTaskCardProps> = ({
   onCancelEdit,
   onDelete,
 }) => {
-  const aiHours = safeNum(task.aiEstimatedHours ?? task.estimatedHours);
+  const aiHours  = safeNum(task.aiEstimatedHours ?? task.estimatedHours);
+  const status   = STATUS_CFG[task.status]      ?? STATUS_CFG.TO_DO;
+  const priority = PRIORITY_CFG[task.priority]  ?? PRIORITY_CFG.MEDIUM;
 
-  // Résoudre le nom du membre assigné depuis les différents formats possibles
   const getMemberName = (val: TaskMarketing['assignedTo']): string => {
     if (!val) return '';
-
-    // Format objet { id, fullname }
     if (typeof val === 'object' && 'id' in val) {
-      const obj = val as { id: number; fullname?: string; email?: string };
-      // Chercher dans members pour avoir le nom complet
+      const obj = val as { id: number; fullname?: string };
       const found = members.find((m) => m.id === obj.id);
       if (found) {
-        const name =
-          found.fullname ??
-          found.name ??
-          `${found.firstName ?? ''} ${found.lastName ?? ''}`.trim();
+        const name = found.fullname ?? found.name ?? `${found.firstName ?? ''} ${found.lastName ?? ''}`.trim();
         return found.level ? `${name} (${found.level})` : name;
       }
-      // Fallback sur fullname de l'objet
       return obj.fullname ?? `Membre #${obj.id}`;
     }
-
-    // Format id numérique ou string
-    const id = Number(val);
-    const found = members.find((m) => m.id === id);
+    const found = members.find((m) => m.id === Number(val));
     if (!found) return '';
-    const name =
-      found.fullname ??
-      found.name ??
-      `${found.firstName ?? ''} ${found.lastName ?? ''}`.trim();
+    const name = found.fullname ?? found.name ?? `${found.firstName ?? ''} ${found.lastName ?? ''}`.trim();
     return found.level ? `${name} (${found.level})` : name;
   };
 
+  const assignedName = getMemberName(task.assignedTo);
+
   return (
-    <div className="bg-white border border-slate-200 rounded-xl overflow-hidden hover:shadow-sm transition-shadow">
-      <div className="p-4">
-        <div className="flex items-start justify-between gap-3">
+    <div
+      className={`
+        group rounded-xl border overflow-hidden transition-all duration-200
+        ${isEditing
+          ? 'border-cyan-300 shadow-[0_0_0_3px_rgba(6,182,212,0.10)] shadow-md bg-white'
+          : 'border-slate-200/80 bg-white hover:border-cyan-200 hover:shadow-sm'
+        }
+      `}
+    >
+      {/* ── Card body ─────────────────────────────────────────────────────── */}
+      <div className="flex">
 
-          {/* ── Info ─────────────────────────────────────────────────── */}
-          <div className="flex-1 min-w-0">
+        {/* Left accent bar */}
+        <div
+          className={`
+            w-1 shrink-0 transition-colors duration-200
+            ${isEditing
+              ? 'bg-gradient-to-b from-cyan-400 to-teal-400'
+              : 'bg-cyan-100 group-hover:bg-cyan-300'
+            }
+          `}
+        />
 
-            {/* Title row */}
-            <div className="flex items-center gap-2 mb-2 flex-wrap">
-              <span className="text-base">{TYPE_EMOJI[task.type] ?? '📌'}</span>
-              <h5 className="font-semibold text-slate-800 truncate">{task.title}</h5>
-            </div>
+        <div className="flex-1 px-4 sm:px-5 py-4 min-w-0">
 
-            {task.description && (
-              <p className="text-sm text-slate-500 mb-3 line-clamp-2">
-                {task.description}
-              </p>
-            )}
+          {/* ── Top row: emoji + title + actions ─────────────────────── */}
+          <div className="flex items-start justify-between gap-3 mb-3">
 
-            {/* Status / type / priority / AI hours / budget badges */}
-            <div className="flex flex-wrap gap-2 items-center mb-3">
+            <div className="flex items-start gap-3 flex-1 min-w-0">
+              {/* Type emoji bubble */}
               <span
-                className={`text-xs font-semibold px-2 py-1 rounded ${
-                  STATUS_STYLE[task.status] ?? 'bg-slate-100 text-slate-700'
-                }`}
+                className="
+                  w-8 h-8 shrink-0 rounded-lg
+                  bg-gradient-to-br from-cyan-50 to-teal-100
+                  border border-cyan-100
+                  flex items-center justify-center text-sm
+                  shadow-[0_1px_3px_rgba(6,182,212,0.12)]
+                "
               >
-                {task.status.replace('_', ' ')}
+                {TYPE_EMOJI[task.type] ?? '📌'}
               </span>
-              <span className="text-xs font-semibold px-2 py-1 rounded bg-slate-100 text-slate-600">
-                {task.type}
-              </span>
-              <span className={`text-xs font-bold ${PRIORITY_COLOR[task.priority] ?? 'text-slate-600'}`}>
-                ▲ {task.priority}
-              </span>
-              {aiHours > 0 && (
-                <span className="inline-flex items-center gap-1 text-xs font-semibold px-2 py-1 rounded-full bg-violet-100 text-violet-700 border border-violet-200">
-                  <Cpu size={10} /> {formatHours(aiHours)}
-                </span>
-              )}
-              {safeNum(task.budget) > 0 && (
-                <span className="inline-flex items-center gap-1 text-xs font-semibold px-2 py-1 rounded bg-emerald-100 text-emerald-700">
-                  <DollarSign size={10} /> {safeNum(task.budget).toLocaleString()}€
-                </span>
-              )}
+
+              <div className="flex-1 min-w-0">
+                <h5 className="font-bold text-sm sm:text-base text-slate-800 leading-snug truncate">
+                  {task.title}
+                </h5>
+                {task.description && (
+                  <p className="text-xs text-slate-400 line-clamp-1 mt-0.5 leading-relaxed">
+                    {task.description}
+                  </p>
+                )}
+              </div>
             </div>
 
-            {/* Delay badge */}
-            {task.delayHours !== undefined && task.delayHours !== 0 && (
-              <div
-                className={`text-xs font-semibold px-2 py-1 rounded mb-3 inline-block ${
-                  task.delayHours > 0
-                    ? 'bg-red-100 text-red-700'
-                    : 'bg-emerald-100 text-emerald-700'
-                }`}
-              >
-                {task.delayHours > 0
-                  ? `⚠️ Retard: +${task.delayHours}h`
-                  : `✨ Avance: ${Math.abs(task.delayHours).toFixed(1)}h`}
+            {/* Action buttons */}
+            {!isEditing && (
+              <div className="flex items-center gap-1.5 shrink-0">
+                <button
+                  onClick={() => onStartEdit(task, sprintId)}
+                  title="Éditer"
+                  className="
+                    p-1.5 rounded-lg border
+                    bg-cyan-50 text-cyan-600 border-cyan-200
+                    hover:bg-cyan-500 hover:text-white hover:border-cyan-500
+                    transition-all duration-150
+                    focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-cyan-400
+                  "
+                >
+                  <Edit2 size={14} />
+                </button>
+                <button
+                  onClick={() => onDelete(task.id!, sprintId)}
+                  title="Supprimer"
+                  className="
+                    p-1.5 rounded-lg border
+                    bg-rose-50 text-rose-400 border-rose-200
+                    hover:bg-rose-500 hover:text-white hover:border-rose-500
+                    transition-all duration-150
+                    focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-rose-300
+                  "
+                >
+                  <Trash2 size={14} />
+                </button>
               </div>
             )}
+          </div>
 
-            {/* Meta row */}
-            <div className="grid grid-cols-2 md:grid-cols-4 gap-2 text-xs pt-2 border-t border-slate-100">
+          {/* ── Badges row ────────────────────────────────────────────── */}
+          <div className="flex flex-wrap gap-1.5 mb-3">
 
-              {/* Canal */}
+            {/* Status */}
+            <span className={`inline-flex items-center gap-1.5 text-xs font-semibold px-2.5 py-1 rounded-full border ${status.cls}`}>
+              <span className={`w-1.5 h-1.5 rounded-full shrink-0 ${status.dot}`} />
+              {status.label}
+            </span>
+
+            {/* Priority */}
+            <span className={`text-xs font-bold px-2.5 py-1 rounded-full border ${priority.cls}`}>
+              {priority.label}
+            </span>
+
+            {/* Type */}
+            <span className="text-xs font-medium px-2.5 py-1 rounded-full border bg-slate-50 text-slate-500 border-slate-200">
+              {task.type.replace(/_/g, ' ')}
+            </span>
+
+            {/* AI hours */}
+            {aiHours > 0 && (
+              <span className="inline-flex items-center gap-1 text-xs font-semibold px-2.5 py-1 rounded-full bg-violet-50 text-violet-600 border border-violet-200">
+                <Cpu size={10} />
+                {formatHours(aiHours)}
+              </span>
+            )}
+
+            {/* Budget */}
+            {safeNum(task.budget) > 0 && (
+              <span className="inline-flex items-center gap-1 text-xs font-semibold px-2.5 py-1 rounded-full bg-teal-50 text-teal-700 border border-teal-200">
+                <DollarSign size={10} />
+                {safeNum(task.budget).toLocaleString()} TND
+              </span>
+            )}
+
+            {/* Delay */}
+            {task.delayHours !== undefined && task.delayHours !== 0 && (
+              <span className={`text-xs font-semibold px-2.5 py-1 rounded-full border ${
+                task.delayHours > 0
+                  ? 'bg-rose-50 text-rose-600 border-rose-200'
+                  : 'bg-teal-50 text-teal-700 border-teal-200'
+              }`}>
+                {task.delayHours > 0
+                  ? `⚠ +${task.delayHours}h retard`
+                  : `✓ ${Math.abs(task.delayHours).toFixed(1)}h avance`}
+              </span>
+            )}
+          </div>
+
+          {/* ── Meta grid ─────────────────────────────────────────────── */}
+          {(assignedName || task.channel || task.scheduledStartDate || task.scheduledEndDate || safeNum(task.expectedClicks) > 0 || task.completedAt) && (
+            <div className="grid grid-cols-2 sm:grid-cols-4 gap-x-4 gap-y-2 pt-3 border-t border-cyan-50/80">
+
+              {assignedName && (
+                <div className="col-span-2 sm:col-span-1">
+                  <MetaItem icon={<User size={11} />} label="Assigné" value={assignedName} />
+                </div>
+              )}
+
               {task.channel && (
-                <div>
-                  <span className="text-slate-400">Canal: </span>
-                  <span className="font-semibold text-slate-700">{task.channel}</span>
-                </div>
+                <MetaItem icon={<Radio size={11} />} label="Canal" value={task.channel} />
               )}
 
-              {/* ✅ Date de début */}
               {task.scheduledStartDate && (
-                <div className="flex items-center gap-1">
-                  <Calendar size={10} className="text-green-500 shrink-0" />
-                  <span className="text-slate-400">Début: </span>
-                  <span className="font-semibold text-slate-700">
-                    {fmtDate(task.scheduledStartDate)}
-                  </span>
-                </div>
+                <MetaItem icon={<Calendar size={11} />} label="Début" value={fmtDate(task.scheduledStartDate)} />
               )}
 
-              {/* Date de fin */}
               {task.scheduledEndDate && (
-                <div className="flex items-center gap-1">
-                  <Calendar size={10} className="text-orange-400 shrink-0" />
-                  <span className="text-slate-400">Échéance: </span>
-                  <span className="font-semibold text-slate-700">
-                    {fmtDate(task.scheduledEndDate)}
-                  </span>
-                </div>
+                <MetaItem icon={<Calendar size={11} />} label="Fin" value={fmtDate(task.scheduledEndDate)} />
               )}
 
-              {/* Clics attendus */}
               {safeNum(task.expectedClicks) > 0 && (
-                <div>
-                  <span className="text-slate-400">Clics: </span>
-                  <span className="font-semibold text-slate-700">
-                    {safeNum(task.expectedClicks).toLocaleString()}
-                  </span>
-                </div>
+                <MetaItem icon={<Tag size={11} />} label="Clics" value={safeNum(task.expectedClicks).toLocaleString()} />
               )}
 
-              {/* Assigné */}
-              {task.assignedTo && getMemberName(task.assignedTo) && (
-                <div>
-                  <span className="text-slate-400">Assigné: </span>
-                  <span className="font-semibold text-slate-700">
-                    {getMemberName(task.assignedTo)}
-                  </span>
-                </div>
-              )}
-
-              {/* Date de complétion réelle */}
               {task.completedAt && (
-                <div>
-                  <span className="text-slate-400">Complété: </span>
-                  <span className="font-semibold text-emerald-700">
-                    {fmtDate(task.completedAt)}
-                  </span>
-                </div>
+                <MetaItem
+                  icon={<Calendar size={11} />}
+                  label="Complété"
+                  value={fmtDate(task.completedAt)}
+                  valueClass="text-teal-700"
+                />
               )}
             </div>
-          </div>
-
-          {/* ── Actions ──────────────────────────────────────────────── */}
-          <div className="flex items-center gap-2 flex-shrink-0">
-            <button
-              onClick={() => onStartEdit(task, sprintId)}
-              className="p-2 bg-emerald-100 text-emerald-700 hover:bg-emerald-200 rounded-lg transition-colors"
-              title="Éditer"
-            >
-              <Edit2 size={15} />
-            </button>
-            <button
-              onClick={() => onDelete(task.id!, sprintId)}
-              className="p-2 bg-red-100 text-red-700 hover:bg-red-200 rounded-lg transition-colors"
-              title="Supprimer"
-            >
-              <Trash2 size={15} />
-            </button>
-          </div>
+          )}
         </div>
+      </div>
 
-        {/* ── Inline edit form ─────────────────────────────────────── */}
-        {isEditing && editingData && (
+      {/* ── Inline edit form ────────────────────────────────────────────────── */}
+      {isEditing && editingData && (
+        <div className="border-t border-cyan-100 bg-gradient-to-br from-cyan-50/40 to-teal-50/30 px-4 sm:px-5 py-4">
           <MarketingTaskForm
             task={editingData}
             members={members}
             mode="edit"
+            sprint={sprint}
             isEstimating={isEstimating}
             loading={loading}
             onChange={onEditChange}
@@ -267,8 +307,8 @@ export const MarketingTaskCard: React.FC<MarketingTaskCardProps> = ({
             onSave={onSave}
             onCancel={onCancelEdit}
           />
-        )}
-      </div>
+        </div>
+      )}
     </div>
   );
 };

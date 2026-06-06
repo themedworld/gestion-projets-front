@@ -1,9 +1,13 @@
 'use client';
 // ─── MarketingSprintsPage.tsx ─────────────────────────────────────────────────
+// Design: Light + Turquoise — responsive mobile/desktop
 
 import React, { useState, useEffect, useCallback } from 'react';
 import { useParams, useRouter } from 'next/navigation';
-import { ChevronLeft, Plus, AlertCircle, X, ListTodo } from 'lucide-react';
+import {
+  ChevronLeft, Plus, AlertCircle, X, ListTodo,
+  Clock, Users, CalendarDays, Banknote,
+} from 'lucide-react';
 
 import type { SprintMarketing, TaskMarketing, ProjectMember } from './services/Types';
 import { getEmptyTask, getEmptySprint } from './services/Types';
@@ -21,10 +25,9 @@ import {
 } from '@/Dashboard/project/[id]/sprintmarketinglist/services/marketingCostEstimationService';
 import { MarketingSprintForm } from '@/Dashboard/project/[id]/sprintmarketinglist/components/Marketingsprintform';
 import { MarketingSprintCard } from '@/Dashboard/project/[id]/sprintmarketinglist/components/Marketingsprintcard';
-import { validateSprintDates } from '@/Dashboard/project/[id]/sprintmarketinglist/services/Datevalidation';
+import { validateSprintDates, validateTaskDates } from '@/Dashboard/project/[id]/sprintmarketinglist/services/Datevalidation';
 
 // ─── Helpers ──────────────────────────────────────────────────────────────────
-
 const getAuthToken = () =>
   typeof window !== 'undefined' ? localStorage.getItem('access_token') ?? '' : '';
 
@@ -40,82 +43,88 @@ async function apiFetch(url: string, options: RequestInit): Promise<Response> {
   return res;
 }
 
-// ─── Page component ───────────────────────────────────────────────────────────
+// ─── Metric card ──────────────────────────────────────────────────────────────
+const MetricCard: React.FC<{
+  icon: React.ReactNode;
+  value: string;
+  label: string;
+  colorClass: string;
+  bgClass: string;
+}> = ({ icon, value, label, colorClass, bgClass }) => (
+  <div className={`flex items-center gap-3 p-4 rounded-xl border ${bgClass}`}>
+    <span className={`p-2 rounded-lg bg-white/60 ${colorClass}`}>{icon}</span>
+    <div>
+      <p className={`text-xl font-extrabold leading-none ${colorClass}`}>{value}</p>
+      <p className="text-xs text-slate-500 mt-1">{label}</p>
+    </div>
+  </div>
+);
 
+// ─── Page component ───────────────────────────────────────────────────────────
 const MarketingSprintsPage: React.FC = () => {
   const params    = useParams() as { id?: string };
   const projectId = params?.id;
   const router    = useRouter();
 
-  // ── Data ────────────────────────────────────────────────────────────────────
+  // ── Data ─────────────────────────────────────────────────────────────────
   const [members,            setMembers]            = useState<ProjectMember[]>([]);
   const [sprints,            setSprints]            = useState<SprintMarketing[]>([]);
   const [marketingProjectId, setMarketingProjectId] = useState<number | null>(null);
   const [metrics,            setMetrics]            = useState<MarketingProjectMetrics | null>(null);
+  const [projectStartDate,   setProjectStartDate]   = useState<string | null>(null);
+  const [projectEndDate,     setProjectEndDate]     = useState<string | null>(null);
 
-  // ── Project date bounds (for sprint validation) ──────────────────────────
-  const [projectStartDate, setProjectStartDate] = useState<string | null>(null);
-  const [projectEndDate,   setProjectEndDate]   = useState<string | null>(null);
-
-  // ── UI ──────────────────────────────────────────────────────────────────────
+  // ── UI ────────────────────────────────────────────────────────────────────
   const [loading,    setLoading]    = useState(false);
   const [estimating, setEstimating] = useState(false);
   const [error,      setError]      = useState<string | null>(null);
   const [success,    setSuccess]    = useState<string | null>(null);
   const [expandedSprints, setExpandedSprints] = useState<Set<number>>(new Set());
 
-  // ── Create sprint ────────────────────────────────────────────────────────────
+  // ── Create sprint ─────────────────────────────────────────────────────────
   const [showCreate,       setShowCreate]       = useState(false);
   const [newSprint,        setNewSprint]        = useState<SprintMarketing>(getEmptySprint());
   const [newTasks,         setNewTasks]         = useState<TaskMarketing[]>([getEmptyTask()]);
   const [estimatingNewIdx, setEstimatingNewIdx] = useState<number | null>(null);
 
-  // ── Edit sprint ──────────────────────────────────────────────────────────────
+  // ── Edit sprint ───────────────────────────────────────────────────────────
   const [editingSprintId,    setEditingSprintId]    = useState<number | null>(null);
   const [editingSprintData,  setEditingSprintData]  = useState<SprintMarketing | null>(null);
   const [editingSprintTasks, setEditingSprintTasks] = useState<TaskMarketing[]>([]);
   const [estimatingEditIdx,  setEstimatingEditIdx]  = useState<number | null>(null);
 
-  // ── Edit task ────────────────────────────────────────────────────────────────
+  // ── Edit task ─────────────────────────────────────────────────────────────
   const [editingTaskId,       setEditingTaskId]       = useState<number | null>(null);
   const [editingTaskSprintId, setEditingTaskSprintId] = useState<number | null>(null);
   const [editingTaskData,     setEditingTaskData]     = useState<TaskMarketing | null>(null);
   const [estimatingEditTask,  setEstimatingEditTask]  = useState(false);
 
-  // ── persistMarketingMetrics ────────────────────────────────────────────────
+  // ── persistMarketingMetrics ───────────────────────────────────────────────
   const persistMarketingMetrics = useCallback(
     async (m: MarketingProjectMetrics, aiCost: number) => {
       if (!projectId) return;
       try {
-        const body = {
-          estimatedDurationDays: m.durationDays,
-          estimatedCost:         Math.round(aiCost * 100) / 100,
-          teamSize:              m.teamSize,
-        };
         await apiFetch(`${apiBase}/projects/${projectId}/marketing-details`, {
           method:  'PATCH',
-          headers: {
-            'Content-Type': 'application/json',
-            Authorization:  `Bearer ${getAuthToken()}`,
-          },
-          body: JSON.stringify(body),
+          headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${getAuthToken()}` },
+          body: JSON.stringify({
+            estimatedDurationDays: m.durationDays,
+            estimatedCost:         Math.round(aiCost * 100) / 100,
+            teamSize:              m.teamSize,
+          }),
         });
-      } catch (err) {
-        console.error('[persistMarketingMetrics]', err);
-      }
+      } catch (err) { console.error('[persistMarketingMetrics]', err); }
     },
     [projectId],
   );
 
-  // ── refreshMarketingMetrics ────────────────────────────────────────────────
+  // ── refreshMarketingMetrics ───────────────────────────────────────────────
   const refreshMarketingMetrics = useCallback(
     async (updatedSprints: SprintMarketing[]) => {
       if (updatedSprints.length === 0) { setMetrics(null); return; }
-
       const m = computeMarketingProjectMetrics(updatedSprints, members, members.length);
       setMetrics(m);
       if (m.totalHours === 0) return;
-
       const sprintsMeta = {
         totalBudget:    updatedSprints.reduce((s, sp) => s + Number(sp.totalBudget ?? 0), 0),
         campaignType:   updatedSprints[0]?.campaignType,
@@ -126,42 +135,34 @@ const MarketingSprintsPage: React.FC = () => {
         expectedLeads:  updatedSprints.reduce((s, sp) => s + Number(sp.expectedLeads ?? 0), 0),
         expectedROI:    updatedSprints[0]?.expectedROI,
       };
-
-      const aiCost   = await estimateMarketingProjectCost(m.durationDays, m.teamSize, sprintsMeta);
+      const aiCost    = await estimateMarketingProjectCost(m.durationDays, m.teamSize, sprintsMeta);
       const finalCost = aiCost !== null ? aiCost : m.estimatedBudget;
-
       await persistMarketingMetrics(m, finalCost);
       setMetrics({ ...m, estimatedBudget: finalCost });
     },
     [members, persistMarketingMetrics],
   );
 
-  useEffect(() => {
-    refreshMarketingMetrics(sprints);
-  }, [sprints, refreshMarketingMetrics]);
+  useEffect(() => { refreshMarketingMetrics(sprints); }, [sprints, refreshMarketingMetrics]);
 
-  // ── Fetch sprints ─────────────────────────────────────────────────────────────
+  // ── Fetch sprints ─────────────────────────────────────────────────────────
   const fetchSprints = useCallback(async (mktId: number) => {
     setLoading(true);
     try {
-      const res = await fetch(
-        `${apiBase}/projects/${mktId}/marketing-sprints`,
-        { headers: { Authorization: `Bearer ${getAuthToken()}` } },
-      );
+      const res = await fetch(`${apiBase}/projects/${mktId}/marketing-sprints`, {
+        headers: { Authorization: `Bearer ${getAuthToken()}` },
+      });
       if (res.ok) {
         const data = await res.json();
         setSprints(Array.isArray(data) ? data : []);
       } else {
         setError('Erreur lors du chargement des sprints');
       }
-    } catch {
-      setError('Erreur lors du chargement des sprints');
-    } finally {
-      setLoading(false);
-    }
+    } catch { setError('Erreur lors du chargement des sprints'); }
+    finally  { setLoading(false); }
   }, []);
 
-  // ── Fetch project details (members + domain id + project dates) ──────────────
+  // ── Fetch project details ─────────────────────────────────────────────────
   useEffect(() => {
     if (!projectId) return;
     (async () => {
@@ -171,28 +172,14 @@ const MarketingSprintsPage: React.FC = () => {
         });
         if (res.ok) {
           const data = await res.json();
-
           setMembers(data.project?.assignedTo ?? []);
-
-          // ── Store project date bounds for sprint validation ──────────────
           setProjectStartDate(data.project?.startDate ?? null);
           setProjectEndDate(data.project?.endDate     ?? null);
-
           const mktId: number | undefined = data.domainDetails?.id;
-          if (mktId) {
-            setMarketingProjectId(mktId);
-            fetchSprints(mktId);
-          } else {
-            setError(
-              'Aucun sous-projet Marketing trouvé pour ce projet. ' +
-              'Vérifiez que les détails Marketing ont bien été initialisés.',
-            );
-          }
+          if (mktId) { setMarketingProjectId(mktId); fetchSprints(mktId); }
+          else setError('Aucun sous-projet Marketing trouvé. Vérifiez que les détails Marketing ont été initialisés.');
         }
-      } catch (e) {
-        console.error(e);
-        setError('Erreur lors du chargement du projet');
-      }
+      } catch (e) { console.error(e); setError('Erreur lors du chargement du projet'); }
     })();
   }, [projectId, fetchSprints]);
 
@@ -203,34 +190,18 @@ const MarketingSprintsPage: React.FC = () => {
       return next;
     });
 
-  // ── CREATE SPRINT ────────────────────────────────────────────────────────────
+  // ── CREATE SPRINT ─────────────────────────────────────────────────────────
   const handleCreateSprint = async () => {
     if (!newSprint.name || !newSprint.startDate || !newSprint.endDate) {
-      setError('Veuillez remplir les champs obligatoires (nom, dates).');
-      return;
+      setError('Veuillez remplir les champs obligatoires (nom, dates).'); return;
     }
-    if (!marketingProjectId) {
-      setError('ID du projet Marketing introuvable. Rechargez la page.');
-      return;
-    }
-
-    // ── Guard: sprint date validation ────────────────────────────────────────
-    const sprintErr = validateSprintDates(
-      undefined,
-      newSprint.startDate,
-      newSprint.endDate,
-      projectStartDate,
-      projectEndDate,
-      sprints,
-    );
+    if (!marketingProjectId) { setError('ID du projet Marketing introuvable. Rechargez la page.'); return; }
+    const sprintErr = validateSprintDates(undefined, newSprint.startDate, newSprint.endDate, projectStartDate, projectEndDate, sprints);
     if (sprintErr) { setError(sprintErr); return; }
-
     const validTasks = newTasks.filter((t) => t.title.trim());
-
     setEstimating(true);
     const tasksWithAI = await estimateAllMarketingTasks(validTasks);
     setEstimating(false);
-
     setLoading(true);
     try {
       const token   = getAuthToken();
@@ -244,43 +215,30 @@ const MarketingSprintsPage: React.FC = () => {
         endDate:   new Date(newSprint.endDate).toISOString(),
         tasks: tasksWithAI.map(serializeTask),
       }];
-
-      const res = await apiFetch(
-        `${apiBase}/projects/${marketingProjectId}/marketing-sprints`,
-        {
-          method:  'POST',
-          headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
-          body:    JSON.stringify(payload),
-        },
-      );
+      const res = await apiFetch(`${apiBase}/projects/${marketingProjectId}/marketing-sprints`, {
+        method:  'POST',
+        headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
+        body:    JSON.stringify(payload),
+      });
       if (!res.ok) throw new Error('Erreur lors de la création du sprint');
-
       setSuccess('Sprint créé avec succès !');
       setShowCreate(false);
       setNewSprint(getEmptySprint());
       setNewTasks([getEmptyTask()]);
       fetchSprints(marketingProjectId);
-    } catch (err: any) {
-      setError(err.message);
-    } finally {
-      setLoading(false);
-    }
+    } catch (err: any) { setError(err.message); }
+    finally { setLoading(false); }
   };
 
   const handleEstimateNewTask = async (idx: number) => {
     setEstimatingNewIdx(idx);
     const hours = await estimateMarketingTaskHours(newTasks[idx]);
     setEstimatingNewIdx(null);
-    if (hours !== null) {
-      setNewTasks((prev) => {
-        const next = [...prev];
-        next[idx] = { ...next[idx], aiEstimatedHours: hours, estimatedHours: hours };
-        return next;
-      });
-    }
+    if (hours !== null)
+      setNewTasks((prev) => { const next = [...prev]; next[idx] = { ...next[idx], aiEstimatedHours: hours, estimatedHours: hours }; return next; });
   };
 
-  // ── EDIT SPRINT ──────────────────────────────────────────────────────────────
+  // ── EDIT SPRINT ───────────────────────────────────────────────────────────
   const handleEditSprint = (sprint: SprintMarketing) => {
     setEditingSprintId(sprint.id ?? 0);
     setEditingSprintData({ ...sprint });
@@ -290,89 +248,63 @@ const MarketingSprintsPage: React.FC = () => {
   const handleSaveSprint = async () => {
     if (!editingSprintData || !editingSprintId) return;
     if (!marketingProjectId) { setError('ID du projet Marketing introuvable.'); return; }
-
-    // ── Guard: sprint date validation ────────────────────────────────────────
-    const sprintErr = validateSprintDates(
-      editingSprintId,
-      editingSprintData.startDate,
-      editingSprintData.endDate,
-      projectStartDate,
-      projectEndDate,
-      sprints,
-    );
+    const sprintErr = validateSprintDates(editingSprintId, editingSprintData.startDate, editingSprintData.endDate, projectStartDate, projectEndDate, sprints);
     if (sprintErr) { setError(sprintErr); return; }
-
+    for (const task of editingSprintTasks) {
+      const taskErr = validateTaskDates(task.scheduledStartDate, task.scheduledEndDate, editingSprintData.startDate, editingSprintData.endDate);
+      if (taskErr) { setError(`Tâche "${task.title || 'sans titre'}" : ${taskErr}`); return; }
+    }
     setLoading(true);
     try {
       const token = getAuthToken();
-
-      const res = await apiFetch(
-        `${apiBase}/projects/marketing-sprints/${editingSprintId}`,
-        {
-          method:  'PATCH',
-          headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
-          body: JSON.stringify({
-            name:           editingSprintData.name,
-            startDate:      new Date(editingSprintData.startDate).toISOString(),
-            endDate:        new Date(editingSprintData.endDate).toISOString(),
-            status:         editingSprintData.status,
-            priority:       editingSprintData.priority,
-            complexity:     editingSprintData.complexity,
-            totalBudget:    Number(editingSprintData.totalBudget   ?? 0),
-            campaignType:   editingSprintData.campaignType,
-            targetAudience: editingSprintData.targetAudience,
-            channels:       editingSprintData.channels,
-            goals:          editingSprintData.goals,
-            expectedReach:  Number(editingSprintData.expectedReach ?? 0),
-            expectedLeads:  Number(editingSprintData.expectedLeads ?? 0),
-            expectedROI:    Number(editingSprintData.expectedROI   ?? 0),
-          }),
-        },
-      );
+      const res = await apiFetch(`${apiBase}/projects/marketing-sprints/${editingSprintId}`, {
+        method:  'PATCH',
+        headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
+        body: JSON.stringify({
+          name:           editingSprintData.name,
+          startDate:      new Date(editingSprintData.startDate).toISOString(),
+          endDate:        new Date(editingSprintData.endDate).toISOString(),
+          status:         editingSprintData.status,
+          priority:       editingSprintData.priority,
+          complexity:     editingSprintData.complexity,
+          totalBudget:    Number(editingSprintData.totalBudget   ?? 0),
+          campaignType:   editingSprintData.campaignType,
+          targetAudience: editingSprintData.targetAudience,
+          channels:       editingSprintData.channels,
+          goals:          editingSprintData.goals,
+          expectedReach:  Number(editingSprintData.expectedReach ?? 0),
+          expectedLeads:  Number(editingSprintData.expectedLeads ?? 0),
+          expectedROI:    Number(editingSprintData.expectedROI   ?? 0),
+        }),
+      });
       if (!res.ok) throw new Error('Erreur lors de la mise à jour du sprint');
-
       const newlyAdded = editingSprintTasks.filter((t) => !t.id && t.title.trim());
       if (newlyAdded.length) {
         setEstimating(true);
         const withAI = await estimateAllMarketingTasks(newlyAdded);
         setEstimating(false);
-
         for (const task of withAI) {
-          const taskRes = await apiFetch(
-            `${apiBase}/projects/marketing-sprints/${editingSprintId}/tasks`,
-            {
-              method:  'POST',
-              headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
-              body:    JSON.stringify(serializeTask(task)),
-            },
-          );
+          const taskRes = await apiFetch(`${apiBase}/projects/marketing-sprints/${editingSprintId}/tasks`, {
+            method:  'POST',
+            headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
+            body:    JSON.stringify(serializeTask(task)),
+          });
           if (!taskRes.ok) throw new Error('Erreur lors de la création de la tâche');
         }
       }
-
       setSuccess('Sprint mis à jour !');
-      setEditingSprintId(null);
-      setEditingSprintData(null);
-      setEditingSprintTasks([]);
+      setEditingSprintId(null); setEditingSprintData(null); setEditingSprintTasks([]);
       fetchSprints(marketingProjectId);
-    } catch (err: any) {
-      setError(err.message);
-    } finally {
-      setLoading(false);
-    }
+    } catch (err: any) { setError(err.message); }
+    finally { setLoading(false); }
   };
 
   const handleEstimateEditTask = async (idx: number) => {
     setEstimatingEditIdx(idx);
     const hours = await estimateMarketingTaskHours(editingSprintTasks[idx]);
     setEstimatingEditIdx(null);
-    if (hours !== null) {
-      setEditingSprintTasks((prev) => {
-        const next = [...prev];
-        next[idx] = { ...next[idx], aiEstimatedHours: hours, estimatedHours: hours };
-        return next;
-      });
-    }
+    if (hours !== null)
+      setEditingSprintTasks((prev) => { const next = [...prev]; next[idx] = { ...next[idx], aiEstimatedHours: hours, estimatedHours: hours }; return next; });
   };
 
   const handleDeleteSprint = async (id: number) => {
@@ -381,20 +313,16 @@ const MarketingSprintsPage: React.FC = () => {
     setLoading(true);
     try {
       const res = await apiFetch(`${apiBase}/projects/marketing-sprints/${id}`, {
-        method:  'DELETE',
-        headers: { Authorization: `Bearer ${getAuthToken()}` },
+        method: 'DELETE', headers: { Authorization: `Bearer ${getAuthToken()}` },
       });
       if (!res.ok) throw new Error('Erreur lors de la suppression');
       setSprints((prev) => prev.filter((s) => s.id !== id));
       setSuccess('Sprint supprimé !');
-    } catch (err: any) {
-      setError(err.message);
-    } finally {
-      setLoading(false);
-    }
+    } catch (err: any) { setError(err.message); }
+    finally { setLoading(false); }
   };
 
-  // ── EDIT TASK ────────────────────────────────────────────────────────────────
+  // ── EDIT TASK ─────────────────────────────────────────────────────────────
   const handleStartEditTask = (task: TaskMarketing, sprintId: number) => {
     setEditingTaskId(task.id ?? 0);
     setEditingTaskSprintId(sprintId);
@@ -408,50 +336,31 @@ const MarketingSprintsPage: React.FC = () => {
 
   const handleSaveTask = async () => {
     if (!editingTaskData || !editingTaskId || !marketingProjectId) return;
-
+    const parentSprint = sprints.find((s) => s.id === editingTaskSprintId);
+    const taskErr = validateTaskDates(editingTaskData.scheduledStartDate, editingTaskData.scheduledEndDate, parentSprint?.startDate, parentSprint?.endDate);
+    if (taskErr) { setError(taskErr); return; }
     setEstimatingEditTask(true);
     const hours = await estimateMarketingTaskHours(editingTaskData);
     setEstimatingEditTask(false);
-
-    // ── Merge AI estimation into task — sent to backend via DTO ─────────────
-    const taskWithAI: TaskMarketing = {
-      ...editingTaskData,
-      aiEstimatedHours: hours ?? editingTaskData.aiEstimatedHours,
-      estimatedHours:   hours ?? editingTaskData.estimatedHours ?? 0,
-    };
-
+    const taskWithAI: TaskMarketing = { ...editingTaskData, aiEstimatedHours: hours ?? editingTaskData.aiEstimatedHours, estimatedHours: hours ?? editingTaskData.estimatedHours ?? 0 };
     setLoading(true);
     try {
-      const res = await apiFetch(
-        `${apiBase}/projects/marketing-tasks/${editingTaskId}`,
-        {
-          method:  'PATCH',
-          headers: {
-            'Content-Type': 'application/json',
-            Authorization:  `Bearer ${getAuthToken()}`,
-          },
-          // serializeTask now includes aiEstimatedHours — see note below
-          body: JSON.stringify(serializeTask(taskWithAI)),
-        },
-      );
+      const res = await apiFetch(`${apiBase}/projects/marketing-tasks/${editingTaskId}`, {
+        method:  'PATCH',
+        headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${getAuthToken()}` },
+        body: JSON.stringify(serializeTask(taskWithAI)),
+      });
       if (!res.ok) throw new Error('Erreur lors de la mise à jour de la tâche');
-
       setSprints((prev) =>
-        prev.map((s) =>
-          s.id === editingTaskSprintId
-            ? { ...s, tasks: s.tasks.map((t) => (t.id === editingTaskId ? taskWithAI : t)) }
-            : s,
+        prev.map((s) => s.id === editingTaskSprintId
+          ? { ...s, tasks: s.tasks.map((t) => (t.id === editingTaskId ? taskWithAI : t)) }
+          : s,
         ),
       );
       setSuccess('Tâche mise à jour !');
-      setEditingTaskId(null);
-      setEditingTaskSprintId(null);
-      setEditingTaskData(null);
-    } catch (err: any) {
-      setError(err.message);
-    } finally {
-      setLoading(false);
-    }
+      setEditingTaskId(null); setEditingTaskSprintId(null); setEditingTaskData(null);
+    } catch (err: any) { setError(err.message); }
+    finally { setLoading(false); }
   };
 
   const handleDeleteTask = async (taskId: number, sprintId: number) => {
@@ -459,104 +368,129 @@ const MarketingSprintsPage: React.FC = () => {
     setLoading(true);
     try {
       const res = await apiFetch(`${apiBase}/projects/marketing-tasks/${taskId}`, {
-        method:  'DELETE',
-        headers: { Authorization: `Bearer ${getAuthToken()}` },
+        method: 'DELETE', headers: { Authorization: `Bearer ${getAuthToken()}` },
       });
       if (!res.ok) throw new Error('Erreur lors de la suppression');
       setSprints((prev) =>
-        prev.map((s) =>
-          s.id === sprintId
-            ? { ...s, tasks: s.tasks.filter((t) => t.id !== taskId) }
-            : s,
-        ),
+        prev.map((s) => s.id === sprintId ? { ...s, tasks: s.tasks.filter((t) => t.id !== taskId) } : s),
       );
       setSuccess('Tâche supprimée !');
-    } catch (err: any) {
-      setError(err.message);
-    } finally {
-      setLoading(false);
-    }
+    } catch (err: any) { setError(err.message); }
+    finally { setLoading(false); }
   };
 
-  // ── Render ───────────────────────────────────────────────────────────────────
+  // ── Render ────────────────────────────────────────────────────────────────
   return (
-    <div className="min-h-screen bg-gradient-to-br from-slate-50 to-emerald-50/20 py-8 px-4 sm:px-6 lg:px-8">
+    <div className="min-h-screen bg-gradient-to-br from-cyan-50/40 via-white to-slate-50 py-6 sm:py-10 px-4 sm:px-6 lg:px-8">
       <div className="max-w-7xl mx-auto">
 
-        {/* Header */}
+        {/* ── Page header ───────────────────────────────────────────────── */}
         <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between mb-8 gap-4">
           <div>
             <button
               onClick={() => router.back()}
-              className="flex items-center gap-2 text-slate-500 hover:text-emerald-600 mb-2 transition-colors font-medium"
+              className="inline-flex items-center gap-1.5 text-sm text-slate-400 hover:text-cyan-600 mb-2 transition-colors font-medium focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-cyan-400 rounded"
             >
-              <ChevronLeft size={18} /> Retour au projet
+              <ChevronLeft size={16} />
+              Retour au projet
             </button>
-            <h1 className="text-3xl font-extrabold text-slate-900 tracking-tight">
+            <h1 className="text-2xl sm:text-3xl font-extrabold text-slate-900 tracking-tight">
               Sprints Marketing
             </h1>
-            <p className="text-slate-500 mt-1">
+            <p className="text-slate-400 text-sm mt-1">
               Gérez vos campagnes, assignez les tâches et suivez les performances.
             </p>
           </div>
+
           <button
             onClick={() => setShowCreate((v) => !v)}
             disabled={!marketingProjectId}
-            className="flex items-center gap-2 px-4 py-2.5 bg-emerald-600 text-white rounded-lg
-                       font-semibold hover:bg-emerald-700 transition-colors shadow-md shadow-emerald-200
-                       disabled:opacity-50 disabled:cursor-not-allowed"
+            className={`
+              inline-flex items-center gap-2 px-4 py-2.5 rounded-xl font-semibold text-sm
+              transition-all shadow-sm
+              focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-cyan-400
+              disabled:opacity-40 disabled:cursor-not-allowed
+              ${showCreate
+                ? 'bg-slate-100 text-slate-600 border border-slate-200 hover:bg-slate-200'
+                : 'bg-cyan-500 text-white hover:bg-cyan-600 shadow-cyan-200'
+              }
+            `}
           >
-            <Plus size={18} />
+            {showCreate ? <X size={16} /> : <Plus size={16} />}
             {showCreate ? 'Annuler' : 'Nouveau Sprint'}
           </button>
         </div>
 
-        {/* Alerts */}
+        {/* ── Alert: error ──────────────────────────────────────────────── */}
         {error && (
-          <div className="mb-6 p-4 bg-red-50 border border-red-200 rounded-lg flex items-center justify-between text-red-700">
-            <div className="flex items-center gap-3"><AlertCircle size={20} /><span>{error}</span></div>
-            <button onClick={() => setError(null)} className="text-red-500 hover:text-red-700"><X size={18} /></button>
-          </div>
-        )}
-        {success && (
-          <div className="mb-6 p-4 bg-emerald-50 border border-emerald-200 rounded-lg flex items-center justify-between text-emerald-700">
-            <span>{success}</span>
-            <button onClick={() => setSuccess(null)} className="text-emerald-500 hover:text-emerald-700"><X size={18} /></button>
+          <div className="mb-5 flex items-start gap-3 px-4 py-3 bg-rose-50 border border-rose-200 rounded-xl text-rose-700 text-sm">
+            <AlertCircle size={18} className="shrink-0 mt-0.5 text-rose-400" />
+            <span className="flex-1">{error}</span>
+            <button
+              onClick={() => setError(null)}
+              className="shrink-0 text-rose-400 hover:text-rose-600 transition-colors"
+            >
+              <X size={16} />
+            </button>
           </div>
         )}
 
-        {/* Metrics */}
+        {/* ── Alert: success ────────────────────────────────────────────── */}
+        {success && (
+          <div className="mb-5 flex items-center gap-3 px-4 py-3 bg-teal-50 border border-teal-200 rounded-xl text-teal-700 text-sm">
+            <span className="w-2 h-2 rounded-full bg-teal-400 shrink-0" />
+            <span className="flex-1">{success}</span>
+            <button
+              onClick={() => setSuccess(null)}
+              className="shrink-0 text-teal-400 hover:text-teal-600 transition-colors"
+            >
+              <X size={16} />
+            </button>
+          </div>
+        )}
+
+        {/* ── Metrics panel ─────────────────────────────────────────────── */}
         {metrics && metrics.totalHours > 0 && (
-          <div className="mb-6 p-5 bg-white rounded-xl border border-slate-200 shadow-sm">
-            <h3 className="font-bold text-slate-700 mb-4 text-sm uppercase tracking-wider">
+          <div className="mb-6 p-4 sm:p-5 bg-white rounded-2xl border border-slate-200/80 shadow-sm">
+            <p className="text-xs font-bold text-slate-400 uppercase tracking-widest mb-4">
               Résumé du projet Marketing
-            </h3>
-            <div className="grid grid-cols-2 md:grid-cols-4 gap-4 text-center">
-              <div className="p-4 bg-emerald-50 rounded-xl">
-                <p className="text-2xl font-extrabold text-emerald-600">{Math.round(metrics.totalHours)}h</p>
-                <p className="text-xs text-slate-500 mt-1">Heures estimées</p>
-              </div>
-              <div className="p-4 bg-blue-50 rounded-xl">
-                <p className="text-2xl font-extrabold text-blue-600">{metrics.teamSize}</p>
-                <p className="text-xs text-slate-500 mt-1">Membres</p>
-              </div>
-              <div className="p-4 bg-violet-50 rounded-xl">
-                <p className="text-2xl font-extrabold text-violet-600">{metrics.durationDays}j</p>
-                <p className="text-xs text-slate-500 mt-1">Durée estimée</p>
-              </div>
-              <div className="p-4 bg-amber-50 rounded-xl">
-                <p className="text-2xl font-extrabold text-amber-600">
-                  {metrics.estimatedBudget.toLocaleString('fr-FR', {
-                    style: 'currency', currency: 'EUR', maximumFractionDigits: 0,
-                  })}
-                </p>
-                <p className="text-xs text-slate-500 mt-1">Coût IA estimé</p>
-              </div>
+            </p>
+            <div className="grid grid-cols-2 lg:grid-cols-4 gap-3">
+              <MetricCard
+                icon={<Clock size={16} />}
+                value={`${Math.round(metrics.totalHours)}h`}
+                label="Heures estimées"
+                colorClass="text-cyan-600"
+                bgClass="bg-cyan-50 border-cyan-100"
+              />
+              <MetricCard
+                icon={<Users size={16} />}
+                value={String(metrics.teamSize)}
+                label="Membres"
+                colorClass="text-teal-600"
+                bgClass="bg-teal-50 border-teal-100"
+              />
+              <MetricCard
+                icon={<CalendarDays size={16} />}
+                value={`${metrics.durationDays}j`}
+                label="Durée estimée"
+                colorClass="text-violet-600"
+                bgClass="bg-violet-50 border-violet-100"
+              />
+              <MetricCard
+                icon={<Banknote size={16} />}
+                value={metrics.estimatedBudget.toLocaleString('fr-FR', {
+                  style: 'currency', currency: 'TND', maximumFractionDigits: 0,
+                })}
+                label="Coût IA estimé"
+                colorClass="text-amber-600"
+                bgClass="bg-amber-50 border-amber-100"
+              />
             </div>
           </div>
         )}
 
-        {/* Create form */}
+        {/* ── Create form ───────────────────────────────────────────────── */}
         {showCreate && (
           <MarketingSprintForm
             mode="create"
@@ -581,9 +515,7 @@ const MarketingSprintsPage: React.FC = () => {
             }}
             onAddTask={() => setNewTasks((prev) => [...prev, getEmptyTask()])}
             onRemoveTask={(idx) =>
-              setNewTasks((prev) =>
-                prev.length > 1 ? prev.filter((_, i) => i !== idx) : prev,
-              )
+              setNewTasks((prev) => prev.length > 1 ? prev.filter((_, i) => i !== idx) : prev)
             }
             onEstimateTask={handleEstimateNewTask}
             onSave={handleCreateSprint}
@@ -595,21 +527,35 @@ const MarketingSprintsPage: React.FC = () => {
           />
         )}
 
+        {/* ── Loading state ─────────────────────────────────────────────── */}
         {loading && !showCreate && (
-          <div className="text-center py-12">
-            <div className="inline-block animate-spin rounded-full h-12 w-12 border-b-2 border-emerald-600" />
-            <p className="text-slate-600 mt-4">Chargement des sprints…</p>
+          <div className="flex flex-col items-center justify-center py-16 gap-4">
+            <div className="w-10 h-10 rounded-full border-2 border-cyan-200 border-t-cyan-500 animate-spin" />
+            <p className="text-sm text-slate-400 font-medium">Chargement des sprints…</p>
           </div>
         )}
 
+        {/* ── Empty state ───────────────────────────────────────────────── */}
         {!loading && sprints.length === 0 && !showCreate && (
-          <div className="text-center py-16 bg-white rounded-xl border border-slate-200">
-            <ListTodo size={48} className="mx-auto text-slate-300 mb-3" />
-            <p className="text-slate-500 text-lg">Aucun sprint marketing trouvé</p>
-            <p className="text-slate-400 text-sm mt-2">Créez votre premier sprint pour commencer</p>
+          <div className="flex flex-col items-center justify-center py-16 bg-white rounded-2xl border border-slate-200/80 gap-4">
+            <span className="w-16 h-16 rounded-2xl bg-cyan-50 border border-cyan-100 flex items-center justify-center text-cyan-300">
+              <ListTodo size={32} />
+            </span>
+            <div className="text-center">
+              <p className="font-semibold text-slate-600">Aucun sprint marketing trouvé</p>
+              <p className="text-sm text-slate-400 mt-1">Créez votre premier sprint pour commencer</p>
+            </div>
+            <button
+              onClick={() => setShowCreate(true)}
+              disabled={!marketingProjectId}
+              className="inline-flex items-center gap-2 px-4 py-2 rounded-xl text-sm font-semibold bg-cyan-500 text-white hover:bg-cyan-600 transition-colors shadow-sm shadow-cyan-200 disabled:opacity-40"
+            >
+              <Plus size={15} /> Nouveau Sprint
+            </button>
           </div>
         )}
 
+        {/* ── Sprint list ───────────────────────────────────────────────── */}
         {!loading && sprints.length > 0 && (
           <div className="space-y-4">
             {sprints.map((sprint) => (
@@ -627,11 +573,9 @@ const MarketingSprintsPage: React.FC = () => {
                 estimatingTaskIdx={editingSprintId === sprint.id ? estimatingEditIdx : null}
                 loading={loading}
                 estimating={estimating}
-                // ── Pass validation context down to the card/form ────────────
                 allSprints={sprints}
                 projectStartDate={projectStartDate}
                 projectEndDate={projectEndDate}
-
                 onToggleExpand={toggleExpand}
                 onStartEditSprint={handleEditSprint}
                 onSprintChange={(field, value) =>
@@ -649,11 +593,8 @@ const MarketingSprintsPage: React.FC = () => {
                 }
                 onRemoveSprintTask={(idx) => {
                   const task = editingSprintTasks[idx];
-                  if (task.id) {
-                    setError('Utilisez le bouton Supprimer pour les tâches existantes.');
-                  } else {
-                    setEditingSprintTasks((prev) => prev.filter((_, i) => i !== idx));
-                  }
+                  if (task.id) setError('Utilisez le bouton Supprimer pour les tâches existantes.');
+                  else setEditingSprintTasks((prev) => prev.filter((_, i) => i !== idx));
                 }}
                 onEstimateSprintTask={handleEstimateEditTask}
                 onSaveSprint={handleSaveSprint}
@@ -663,7 +604,6 @@ const MarketingSprintsPage: React.FC = () => {
                   setEditingSprintTasks([]);
                 }}
                 onDeleteSprint={handleDeleteSprint}
-
                 onStartEditTask={handleStartEditTask}
                 onEditTaskChange={(field, value) =>
                   setEditingTaskData((prev) => prev ? { ...prev, [field]: value } : prev)
@@ -673,11 +613,10 @@ const MarketingSprintsPage: React.FC = () => {
                   setEstimatingEditTask(true);
                   const hours = await estimateMarketingTaskHours(editingTaskData);
                   setEstimatingEditTask(false);
-                  if (hours !== null) {
+                  if (hours !== null)
                     setEditingTaskData((prev) =>
                       prev ? { ...prev, aiEstimatedHours: hours, estimatedHours: hours } : prev,
                     );
-                  }
                 }}
                 onSaveTask={handleSaveTask}
                 onCancelEditTask={() => {
@@ -690,6 +629,7 @@ const MarketingSprintsPage: React.FC = () => {
             ))}
           </div>
         )}
+
       </div>
     </div>
   );

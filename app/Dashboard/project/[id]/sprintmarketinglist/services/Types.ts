@@ -1,10 +1,8 @@
 'use client';
 // ─── Types.ts — Marketing Sprints & Tasks ─────────────────────────────────────
-
 export type TaskMarketingType =
-  | 'SEO' | 'PPC' | 'EMAIL' | 'SOCIAL' | 'CONTENT'
-  | 'VIDEO' | 'INFLUENCER' | 'AFFILIATE' | 'PR' | 'EVENT' | 'OTHER';
-
+  | 'ANALYTICS' | 'CAMPAIGN' | 'CONTENT_CREATION' | 'COPYWRITING'
+  | 'DESIGN' | 'EMAIL' | 'PPC' | 'SEO' | 'SOCIAL_MEDIA' | 'OTHER';
 export type TaskMarketingStatus =
   | 'TO_DO' | 'IN_PROGRESS' | 'IN_REVIEW' | 'DONE' | 'BLOCKED';
 
@@ -78,8 +76,8 @@ export interface SprintMarketing {
 // ─── Acceptable values for ML model categorical inputs ────────────────────────
 
 export const TASK_TYPE_OPTIONS: TaskMarketingType[] = [
-  'SEO', 'PPC', 'EMAIL', 'SOCIAL', 'CONTENT',
-  'VIDEO', 'INFLUENCER', 'AFFILIATE', 'PR', 'EVENT', 'OTHER',
+  'ANALYTICS', 'CAMPAIGN', 'CONTENT_CREATION', 'COPYWRITING',
+  'DESIGN', 'EMAIL', 'PPC', 'SEO', 'SOCIAL_MEDIA', 'OTHER',
 ];
 
 export const TASK_STATUS_OPTIONS: { value: TaskMarketingStatus; label: string }[] = [
