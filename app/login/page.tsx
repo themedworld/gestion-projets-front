@@ -114,6 +114,7 @@ export default function LoginPage() {
       if (!res.ok) throw new Error("Identifiants invalides");
       const data = await res.json();
       localStorage.setItem("access_token", data.access_token);
+      console.log(data.access_token);
       localStorage.setItem("user", JSON.stringify(data.user));
       setSuccess(true);
       setTimeout(() => router.push(getDashboardPath(data.user?.role ?? "")), 900);

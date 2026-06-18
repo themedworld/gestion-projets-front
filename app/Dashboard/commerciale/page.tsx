@@ -2,7 +2,6 @@
 
 import { useState, useEffect, useRef, useCallback } from "react";
 
-// ─── Design tokens ────────────────────────────────────────────────────────
 const T = {
   teal:       "#0d9488",
   tealLight:  "#ccfbf1",
@@ -23,7 +22,6 @@ const T = {
   grayLight:  "#f3f4f6",
 };
 
-// ─── Icons ────────────────────────────────────────────────────────────────
 const Icon = ({ d, size = 16, color }) => (
   <svg width={size} height={size} viewBox="0 0 24 24" fill="none"
     stroke={color || "currentColor"} strokeWidth={1.8} strokeLinecap="round"
@@ -63,23 +61,20 @@ const LinkedInSVG = ({ size = 14 }) => (
   </svg>
 );
 
-// ─── Utilities ────────────────────────────────────────────────────────────
 function getInitials(name) {
   return name.split(" ").map(n => n[0]).join("").toUpperCase().slice(0, 2);
 }
 
 function formatProgressLabel(p) {
-  if (p < 5)  return "Initialisation";
-  if (p < 15) return "Domaine";
-  if (p < 25) return "Réseaux sociaux";
-  if (p < 40) return "Scraping site";
-  if (p < 60) return "Employés";
-  if (p < 95) return "Emails";
-  if (p < 100) return "Finalisation";
+  if (p < 5)   return "Initialisation";
+  if (p < 15)  return "Domaine";
+  if (p < 25)  return "Réseaux sociaux";
+  if (p < 40)  return "Scraping site";
+  if (p < 60)  return "Employés";
+  if (p < 100) return "Emails";
   return "Complété";
 }
 
-// ─── Spinner ──────────────────────────────────────────────────────────────
 function Spinner({ size = 14, color = "currentColor" }) {
   return (
     <svg width={size} height={size} viewBox="0 0 24 24" fill="none"
@@ -90,7 +85,6 @@ function Spinner({ size = 14, color = "currentColor" }) {
   );
 }
 
-// ─── ScoreBar ─────────────────────────────────────────────────────────────
 function ScoreBar({ value }) {
   const pct = Math.round(value <= 1 ? value * 100 : value);
   const color = pct >= 80 ? T.teal : pct >= 60 ? T.amber : T.red;
@@ -104,26 +98,25 @@ function ScoreBar({ value }) {
   );
 }
 
-// ─── CopyBtn ──────────────────────────────────────────────────────────────
 function CopyBtn({ text }) {
   const [copied, setCopied] = useState(false);
   return (
     <button
       onClick={() => { navigator.clipboard.writeText(text); setCopied(true); setTimeout(() => setCopied(false), 1500); }}
       title="Copier"
-      style={{ 
-        padding: "5px 10px", 
-        border: `1px solid ${copied ? T.teal : "#d1d5db"}`, 
-        borderRadius: 6, 
-        background: copied ? T.tealBg : "#fff", 
-        cursor: "pointer", 
-        color: copied ? T.teal : "#6b7280", 
-        fontSize: 11, 
-        display: "flex", 
-        alignItems: "center", 
-        gap: 4, 
+      style={{
+        padding: "5px 10px",
+        border: `1px solid ${copied ? T.teal : "#d1d5db"}`,
+        borderRadius: 6,
+        background: copied ? T.tealBg : "#fff",
+        cursor: "pointer",
+        color: copied ? T.teal : "#6b7280",
+        fontSize: 11,
+        display: "flex",
+        alignItems: "center",
+        gap: 4,
         transition: "all .2s",
-        fontWeight: 500
+        fontWeight: 500,
       }}>
       <Icon d={copied ? ICONS.check : ICONS.copy} size={12} />
       {copied && "Copié"}
@@ -131,15 +124,14 @@ function CopyBtn({ text }) {
   );
 }
 
-// ─── StatusBadge ─────────────────────────────────────────────────────────
 function StatusBadge({ status }) {
   const map = {
-    idle:      { label: "Inactif",    bg: "#f3f4f6",   color: "#6b7280",      dot: "#d1d5db" },
-    running:   { label: "En cours",   bg: T.tealBg,    color: T.tealDark,  dot: T.teal },
-    stopping:  { label: "Arrêt",      bg: T.orangeBg,  color: T.orange,    dot: T.orange },
-    completed: { label: "Terminé",    bg: T.greenBg,   color: T.green,     dot: T.green },
-    stopped:   { label: "Arrêté",     bg: T.orangeBg,  color: T.orange,    dot: T.orange },
-    error:     { label: "Erreur",     bg: T.redBg,     color: T.red,       dot: T.red },
+    idle:      { label: "Inactif",  bg: "#f3f4f6",  color: "#6b7280", dot: "#d1d5db" },
+    running:   { label: "En cours", bg: T.tealBg,   color: T.tealDark, dot: T.teal },
+    stopping:  { label: "Arrêt",    bg: T.orangeBg, color: T.orange,   dot: T.orange },
+    completed: { label: "Terminé",  bg: T.greenBg,  color: T.green,    dot: T.green },
+    stopped:   { label: "Arrêté",   bg: T.orangeBg, color: T.orange,   dot: T.orange },
+    error:     { label: "Erreur",   bg: T.redBg,    color: T.red,      dot: T.red },
   };
   const s = map[status] || map.idle;
   const pulse = ["running", "stopping"].includes(status);
@@ -151,7 +143,6 @@ function StatusBadge({ status }) {
   );
 }
 
-// ─── EmailRow ─────────────────────────────────────────────────────────────
 function EmailRow({ e }) {
   const pct = e.score;
   const scoreColor = pct >= 80 ? T.green  : pct >= 60 ? T.amber  : T.red;
@@ -171,7 +162,6 @@ function EmailRow({ e }) {
   );
 }
 
-// ─── EmailList ────────────────────────────────────────────────────────────
 function EmailList({ emails }) {
   const [all, setAll] = useState(false);
   const shown = all ? emails : emails.slice(0, 3);
@@ -190,7 +180,6 @@ function EmailList({ emails }) {
   );
 }
 
-// ─── EmployeeCard ─────────────────────────────────────────────────────────
 function EmployeeCard({ emp }) {
   const [open, setOpen] = useState(false);
   const url = emp.linkedin_url || emp.profile_url;
@@ -215,7 +204,7 @@ function EmployeeCard({ emp }) {
         </div>
       </button>
       {open && (
-        <div style={{ padding: "0 14px 12px", borderTop: "1px solid #e5e7eb", paddingTop: 12, background: "#fafafa" }}>
+        <div style={{ padding: "12px 14px", borderTop: "1px solid #e5e7eb", background: "#fafafa" }}>
           <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 10 }}>
             <span style={{ fontSize: 11, fontWeight: 600, color: "#6b7280", textTransform: "uppercase" }}>Emails</span>
             <span style={{ fontSize: 11, color: "#6b7280" }}>{emp.emails.length}</span>
@@ -230,7 +219,6 @@ function EmployeeCard({ emp }) {
   );
 }
 
-// ─── ProgressSteps ────────────────────────────────────────────────────────
 const STEPS = [
   { label: "Init",     pct: 5 },
   { label: "Domaine",  pct: 15 },
@@ -245,7 +233,7 @@ function ProgressSteps({ progress }) {
   return (
     <div style={{ display: "grid", gridTemplateColumns: "repeat(7, 1fr)", gap: 4, marginTop: 12 }}>
       {STEPS.map((s, i) => {
-        const done = progress >= s.pct;
+        const done   = progress >= s.pct;
         const active = progress >= (STEPS[i - 1]?.pct ?? 0) && !done;
         return (
           <div key={i} style={{ display: "flex", flexDirection: "column", alignItems: "center", gap: 4 }}>
@@ -258,7 +246,6 @@ function ProgressSteps({ progress }) {
   );
 }
 
-// ─── LogsPanel ────────────────────────────────────────────────────────────
 function LogsPanel({ logs }) {
   const endRef = useRef(null);
   useEffect(() => { endRef.current?.scrollIntoView({ behavior: "smooth" }); }, [logs]);
@@ -291,7 +278,6 @@ function LogsPanel({ logs }) {
   );
 }
 
-// ─── SocialRow ────────────────────────────────────────────────────────────
 function SocialRow({ href, label, icon }) {
   const empty = !href || href === "N/A";
   return (
@@ -307,7 +293,6 @@ function SocialRow({ href, label, icon }) {
   );
 }
 
-// ─── ResultsPanel ─────────────────────────────────────────────────────────
 function ResultsPanel({ result, isPartial }) {
   const [tab, setTab] = useState("overview");
 
@@ -325,8 +310,8 @@ function ResultsPanel({ result, isPartial }) {
     </div>
   );
 
-  const co   = parsed?.company;
-  const emps = parsed?.employees ?? [];
+  const co    = parsed?.company;
+  const emps  = parsed?.employees ?? [];
   const total = emps.reduce((a, e) => a + e.emails.length, 0);
   const avg   = emps.length > 0
     ? Math.round(emps.reduce((a, e) => {
@@ -364,7 +349,6 @@ function ResultsPanel({ result, isPartial }) {
 
       {tab === "overview" && co && (
         <div style={{ display: "flex", flexDirection: "column", gap: 16 }}>
-          {/* Company card */}
           <div style={{ background: "#fff", border: "1px solid #e5e7eb", borderRadius: 12, padding: "16px", borderLeft: `3px solid ${T.teal}` }}>
             <div style={{ display: "flex", alignItems: "center", gap: 14, marginBottom: 14 }}>
               <div style={{ width: 44, height: 44, borderRadius: 12, background: T.tealBg, display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0 }}>
@@ -373,7 +357,7 @@ function ResultsPanel({ result, isPartial }) {
               <div style={{ minWidth: 0 }}>
                 <p style={{ fontWeight: 600, fontSize: 15, color: "#1f2937", margin: 0 }}>{co.name || "—"}</p>
                 <p style={{ fontSize: 12, color: T.teal, margin: "3px 0 0", fontWeight: 500 }}>
-                  <Icon d={ICONS.globe} size={10} color={T.teal} style={{ marginRight: 4 }} /> {co.domain || "N/A"}
+                  {co.domain || "N/A"}
                 </p>
               </div>
             </div>
@@ -396,25 +380,23 @@ function ResultsPanel({ result, isPartial }) {
             )}
           </div>
 
-          {/* Stats */}
           <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(140px, 1fr))", gap: 12 }}>
             {[
-              { val: emps.length, label: "Employés",  icon: ICONS.users,    color: T.teal,  bg: T.tealBg },
-              { val: total,       label: "Emails",    icon: ICONS.mail,     color: T.blue,  bg: T.blueBg },
-              { val: `${avg}%`,   label: "Score",    icon: ICONS.target,   color: T.green, bg: T.greenBg },
+              { val: emps.length, label: "Employés", icon: ICONS.users,  color: T.teal,  bg: T.tealBg },
+              { val: total,       label: "Emails",   icon: ICONS.mail,   color: T.blue,  bg: T.blueBg },
+              { val: `${avg}%`,   label: "Score",    icon: ICONS.target, color: T.green, bg: T.greenBg },
             ].map((s, i) => (
               <div key={i} style={{ background: s.bg, borderRadius: 10, padding: "16px", textAlign: "center" }}>
-                <Icon d={s.icon} size={18} color={s.color} style={{ marginBottom: 8 }} />
-                <p style={{ fontSize: 20, fontWeight: 600, margin: 0, color: s.color }}>{s.val}</p>
+                <Icon d={s.icon} size={18} color={s.color} />
+                <p style={{ fontSize: 20, fontWeight: 600, margin: "8px 0 0", color: s.color }}>{s.val}</p>
                 <p style={{ fontSize: 11, color: "#6b7280", margin: "4px 0 0" }}>{s.label}</p>
               </div>
             ))}
           </div>
 
-          {/* Company emails */}
           {co.emails?.length > 0 && (
             <div style={{ background: "#fff", border: "1px solid #e5e7eb", borderRadius: 10, padding: "14px 16px" }}>
-              <p style={{ fontSize: 11, fontWeight: 600, color: T.teal, textTransform: "uppercase", marginBottom: 12, display: "flex", alignItems: "center", gap: 6, margin: "0 0 12px" }}>
+              <p style={{ fontSize: 11, fontWeight: 600, color: T.teal, textTransform: "uppercase", margin: "0 0 12px", display: "flex", alignItems: "center", gap: 6 }}>
                 <Icon d={ICONS.mail} size={11} color={T.teal} /> Emails génériques
               </p>
               <div style={{ display: "flex", flexDirection: "column", gap: 6 }}>
@@ -428,7 +410,6 @@ function ResultsPanel({ result, isPartial }) {
             </div>
           )}
 
-          {/* Phones */}
           {co.phones?.length > 0 && (
             <div style={{ background: "#fff", border: "1px solid #e5e7eb", borderRadius: 10, padding: "14px 16px" }}>
               <p style={{ fontSize: 11, fontWeight: 600, color: T.teal, textTransform: "uppercase", margin: "0 0 12px", display: "flex", alignItems: "center", gap: 6 }}>
@@ -445,7 +426,6 @@ function ResultsPanel({ result, isPartial }) {
             </div>
           )}
 
-          {/* Employees */}
           <div>
             <p style={{ fontSize: 11, fontWeight: 600, color: T.teal, textTransform: "uppercase", margin: "0 0 12px", display: "flex", alignItems: "center", gap: 6 }}>
               <Icon d={ICONS.users} size={11} color={T.teal} /> Employés ({emps.length})
@@ -478,7 +458,9 @@ function ResultsPanel({ result, isPartial }) {
   );
 }
 
-// ─── Field ────────────────────────────────────────────────────────────────
+// ─── Field — extrait hors du composant principal ──────────────────────────
+// CORRECTION BUG 1 : Field doit être défini HORS du composant OSINTDashboard
+// pour éviter la recréation à chaque render (qui causait la perte de focus).
 function Field({ label, field, value, onChange, disabled, placeholder, icon }) {
   return (
     <div>
@@ -516,6 +498,87 @@ function Field({ label, field, value, onChange, disabled, placeholder, icon }) {
   );
 }
 
+// ─── LeftPanel — extrait hors du composant principal ─────────────────────
+// CORRECTION BUG 1 (suite) : LeftPanel doit aussi être HORS de OSINTDashboard.
+// Avant, il était défini dedans → recréé à chaque render → démontage/remontage
+// de tous les <input> → perte de focus à chaque frappe.
+function LeftPanel({ formData, handleField, isActive, status, sessionId, progress, pct, startSearch, stopSearch }) {
+  return (
+    <div style={{ display: "flex", flexDirection: "column", gap: 16 }}>
+      <div style={{ background: "#fff", border: "1px solid #e5e7eb", borderRadius: 12, overflow: "hidden" }}>
+        <div style={{ padding: "14px 16px", borderBottom: "1px solid #e5e7eb", background: T.tealBg, display: "flex", alignItems: "center", gap: 8 }}>
+          <Icon d={ICONS.target} size={14} color={T.teal} />
+          <p style={{ fontSize: 13, fontWeight: 600, color: T.tealDark, margin: 0 }}>Paramètres</p>
+        </div>
+        <div style={{ padding: "16px", display: "flex", flexDirection: "column", gap: 14 }}>
+          <Field label="Nom"    field="company_name"   value={formData.company_name}   onChange={handleField} disabled={isActive} placeholder="ex: Acme Corp"  icon={<Icon d={ICONS.building} size={13} />} />
+          <Field label="Handle" field="company_handle" value={formData.company_handle} onChange={handleField} disabled={isActive} placeholder="ex: acme-corp"   icon={<Icon d={ICONS.hash} size={13} />} />
+          <div style={{ display: "grid", gridTemplateColumns: "1fr 80px", gap: 10 }}>
+            <Field label="Pays" field="country_name" value={formData.country_name} onChange={handleField} disabled={isActive} placeholder="France" icon={<Icon d={ICONS.globe} size={13} />} />
+            <Field label="ISO"  field="country_iso"  value={formData.country_iso}  onChange={handleField} disabled={isActive} placeholder="TN" />
+          </div>
+          <Field label="Rôles" field="target_roles" value={formData.target_roles} onChange={handleField} disabled={isActive} placeholder="CEO, Dev" icon={<Icon d={ICONS.users} size={13} />} />
+        </div>
+        <div style={{ padding: "0 16px 16px", display: "flex", flexDirection: "column", gap: 10 }}>
+          <button
+            onClick={startSearch}
+            disabled={isActive}
+            style={{ width: "100%", display: "flex", alignItems: "center", justifyContent: "center", gap: 8, padding: "11px", background: isActive ? `${T.teal}77` : T.teal, border: "none", borderRadius: 8, color: "#fff", fontSize: 13, fontWeight: 600, cursor: isActive ? "not-allowed" : "pointer" }}>
+            {status === "running"
+              ? <><Spinner size={14} color="#fff" />Recherche...</>
+              : <><Icon d={ICONS.play} size={14} color="#fff" />Lancer</>
+            }
+          </button>
+          {isActive && (
+            <button
+              onClick={stopSearch}
+              disabled={status === "stopping"}
+              style={{ width: "100%", display: "flex", alignItems: "center", justifyContent: "center", gap: 8, padding: "11px", background: "transparent", border: `1px solid ${T.red}`, borderRadius: 8, color: T.red, fontSize: 13, fontWeight: 600, cursor: status === "stopping" ? "not-allowed" : "pointer", opacity: status === "stopping" ? 0.6 : 1 }}>
+              {status === "stopping"
+                ? <><Spinner size={14} color={T.red} />Arrêt...</>
+                : <><Icon d={ICONS.stop} size={14} color={T.red} />Arrêter</>
+              }
+            </button>
+          )}
+        </div>
+      </div>
+
+      {sessionId && (
+        <div style={{ background: "#fff", border: "1px solid #e5e7eb", borderRadius: 12, padding: "16px" }}>
+          <p style={{ fontSize: 11, fontWeight: 600, color: T.teal, textTransform: "uppercase", margin: "0 0 14px" }}>Session</p>
+          <div style={{ display: "flex", flexDirection: "column", gap: 12 }}>
+            <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
+              <span style={{ fontSize: 12, color: "#6b7280", fontWeight: 500 }}>Statut</span>
+              <StatusBadge status={status === "stopping" ? "stopping" : progress?.status ?? status} />
+            </div>
+            <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
+              <span style={{ fontSize: 12, color: "#6b7280", fontWeight: 500 }}>ID</span>
+              <div style={{ display: "flex", alignItems: "center", gap: 6 }}>
+                <span style={{ fontSize: 11, fontFamily: "monospace", color: "#6b7280" }}>{sessionId.slice(0, 10)}…</span>
+                <CopyBtn text={sessionId} />
+              </div>
+            </div>
+            {progress && (
+              <>
+                <div>
+                  <div style={{ display: "flex", justifyContent: "space-between", marginBottom: 8, fontSize: 12 }}>
+                    <span style={{ color: "#6b7280" }}>{formatProgressLabel(pct)}</span>
+                    <span style={{ fontWeight: 600, color: T.teal }}>{Math.round(pct)}%</span>
+                  </div>
+                  <div style={{ height: 6, background: "#e5e7eb", borderRadius: 99, overflow: "hidden" }}>
+                    <div style={{ height: "100%", width: `${pct}%`, background: status === "stopping" ? T.orange : T.teal, borderRadius: 99, transition: "width .5s" }} />
+                  </div>
+                </div>
+                <ProgressSteps progress={pct} />
+              </>
+            )}
+          </div>
+        </div>
+      )}
+    </div>
+  );
+}
+
 // ─── Main Component ───────────────────────────────────────────────────────
 export default function OSINTDashboard() {
   const API_URL = process.env.NEXT_PUBLIC_API_Company_searsh_URL || "https://search-company-xc9u.onrender.com";
@@ -527,13 +590,13 @@ export default function OSINTDashboard() {
     country_iso:    "TN",
     target_roles:   "CEO, CTO, Développeur",
   });
-  const [sessionId, setSessionId] = useState("");
-  const [progress,  setProgress]  = useState(null);
-  const [status,    setStatus]    = useState("idle");
-  const [activeTab, setActiveTab] = useState("logs");
-  const [errorMsg,  setErrorMsg]  = useState("");
-  const [apiOk,     setApiOk]     = useState(null);
-  const [isClient,  setIsClient]  = useState(false);
+  const [sessionId,   setSessionId]   = useState("");
+  const [progress,    setProgress]    = useState(null);
+  const [status,      setStatus]      = useState("idle");
+  const [activeTab,   setActiveTab]   = useState("logs");
+  const [errorMsg,    setErrorMsg]    = useState("");
+  const [apiOk,       setApiOk]       = useState(null);
+  const [isClient,    setIsClient]    = useState(false);
   const [sidebarOpen, setSidebarOpen] = useState(false);
   const pollRef = useRef(null);
 
@@ -590,102 +653,40 @@ export default function OSINTDashboard() {
     }
   };
 
+  // CORRECTION BUG 2 : on envoie la requête D'ABORD, puis on met à jour
+  // le statut local. L'ancienne version faisait setStatus("stopping") avant
+  // le fetch, ce qui désactivait le bouton et pouvait bloquer l'appel.
   const stopSearch = async () => {
-    if (!sessionId || status === "stopping") return;
-    setStatus("stopping");
+    if (!sessionId) return;
     setErrorMsg("");
     try {
       const res = await fetch(`${API_URL}/stop/${sessionId}`, { method: "POST" });
       if (!res.ok) throw new Error(`Erreur: ${res.status}`);
+      setStatus("stopping");
     } catch (e) {
       setErrorMsg(`Erreur arrêt: ${e}`);
     }
   };
 
-  const handleField = (field, val) => setFormData(p => ({ ...p, [field]: val }));
+  const handleField = useCallback((field, val) => {
+    setFormData(p => ({ ...p, [field]: val }));
+  }, []);
 
   if (!isClient) return null;
 
   const pct = progress?.progress ?? 0;
-  const currentStatus = status === "stopping" ? "stopping" : progress?.status ?? status;
 
-  // ── Left panel ────────────────────────────────────────────────────
-  const LeftPanel = () => (
-    <div style={{ display: "flex", flexDirection: "column", gap: 16 }}>
-      {/* Form */}
-      <div style={{ background: "#fff", border: "1px solid #e5e7eb", borderRadius: 12, overflow: "hidden" }}>
-        <div style={{ padding: "14px 16px", borderBottom: "1px solid #e5e7eb", background: T.tealBg, display: "flex", alignItems: "center", gap: 8 }}>
-          <Icon d={ICONS.target} size={14} color={T.teal} />
-          <p style={{ fontSize: 13, fontWeight: 600, color: T.tealDark, margin: 0 }}>Paramètres</p>
-        </div>
-        <div style={{ padding: "16px", display: "flex", flexDirection: "column", gap: 14 }}>
-          <Field label="Nom" field="company_name" value={formData.company_name} onChange={handleField} disabled={isActive} placeholder="ex: Acme Corp" icon={<Icon d={ICONS.building} size={13} />} />
-          <Field label="Handle" field="company_handle" value={formData.company_handle} onChange={handleField} disabled={isActive} placeholder="ex: acme-corp" icon={<Icon d={ICONS.hash} size={13} />} />
-          <div style={{ display: "grid", gridTemplateColumns: "1fr 80px", gap: 10 }}>
-            <Field label="Pays" field="country_name" value={formData.country_name} onChange={handleField} disabled={isActive} placeholder="France" icon={<Icon d={ICONS.globe} size={13} />} />
-            <Field label="ISO" field="country_iso" value={formData.country_iso} onChange={handleField} disabled={isActive} placeholder="TN" />
-          </div>
-          <Field label="Rôles" field="target_roles" value={formData.target_roles} onChange={handleField} disabled={isActive} placeholder="CEO, Dev" icon={<Icon d={ICONS.users} size={13} />} />
-        </div>
-        <div style={{ padding: "0 16px 16px", display: "flex", flexDirection: "column", gap: 10 }}>
-          <button
-            onClick={startSearch}
-            disabled={isActive}
-            style={{ width: "100%", display: "flex", alignItems: "center", justifyContent: "center", gap: 8, padding: "11px", background: isActive ? `${T.teal}77` : T.teal, border: "none", borderRadius: 8, color: "#fff", fontSize: 13, fontWeight: 600, cursor: isActive ? "not-allowed" : "pointer" }}>
-            {status === "running"
-              ? <><Spinner size={14} color="#fff" />Recherche...</>
-              : <><Icon d={ICONS.play} size={14} color="#fff" />Lancer</>
-            }
-          </button>
-          {isActive && (
-            <button
-              onClick={stopSearch}
-              disabled={status === "stopping"}
-              style={{ width: "100%", display: "flex", alignItems: "center", justifyContent: "center", gap: 8, padding: "11px", background: "transparent", border: `1px solid ${T.red}`, borderRadius: 8, color: T.red, fontSize: 13, fontWeight: 600, cursor: status === "stopping" ? "not-allowed" : "pointer", opacity: status === "stopping" ? 0.6 : 1 }}>
-              {status === "stopping"
-                ? <><Spinner size={14} color={T.red} />Arrêt...</>
-                : <><Icon d={ICONS.stop} size={14} color={T.red} />Arrêter</>
-              }
-            </button>
-          )}
-        </div>
-      </div>
-
-      {/* Session */}
-      {sessionId && (
-        <div style={{ background: "#fff", border: "1px solid #e5e7eb", borderRadius: 12, padding: "16px" }}>
-          <p style={{ fontSize: 11, fontWeight: 600, color: T.teal, textTransform: "uppercase", marginBottom: 14, margin: "0 0 14px" }}>Session</p>
-          <div style={{ display: "flex", flexDirection: "column", gap: 12 }}>
-            <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
-              <span style={{ fontSize: 12, color: "#6b7280", fontWeight: 500 }}>Statut</span>
-              <StatusBadge status={currentStatus} />
-            </div>
-            <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
-              <span style={{ fontSize: 12, color: "#6b7280", fontWeight: 500 }}>ID</span>
-              <div style={{ display: "flex", alignItems: "center", gap: 6 }}>
-                <span style={{ fontSize: 11, fontFamily: "monospace", color: "#6b7280" }}>{sessionId.slice(0, 10)}…</span>
-                <CopyBtn text={sessionId} />
-              </div>
-            </div>
-            {progress && (
-              <>
-                <div>
-                  <div style={{ display: "flex", justifyContent: "space-between", marginBottom: 8, fontSize: 12 }}>
-                    <span style={{ color: "#6b7280" }}>{formatProgressLabel(pct)}</span>
-                    <span style={{ fontWeight: 600, color: T.teal }}>{Math.round(pct)}%</span>
-                  </div>
-                  <div style={{ height: 6, background: "#e5e7eb", borderRadius: 99, overflow: "hidden" }}>
-                    <div style={{ height: "100%", width: `${pct}%`, background: status === "stopping" ? T.orange : T.teal, borderRadius: 99, transition: "width .5s" }} />
-                  </div>
-                </div>
-                <ProgressSteps progress={pct} />
-              </>
-            )}
-          </div>
-        </div>
-      )}
-    </div>
-  );
+  const leftPanelProps = {
+    formData,
+    handleField,
+    isActive,
+    status,
+    sessionId,
+    progress,
+    pct,
+    startSearch,
+    stopSearch,
+  };
 
   return (
     <>
@@ -715,7 +716,6 @@ export default function OSINTDashboard() {
 
       <div style={{ minHeight: "100vh", background: "#f9fafb", fontFamily: "-apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif" }}>
 
-        {/* Header */}
         <header style={{ background: "#fff", borderBottom: "1px solid #e5e7eb", padding: "0 16px", position: "sticky", top: 0, zIndex: 30 }}>
           <div style={{ maxWidth: 1220, margin: "0 auto", display: "flex", alignItems: "center", justifyContent: "space-between", height: 56 }}>
             <div style={{ display: "flex", alignItems: "center", gap: 12 }}>
@@ -741,7 +741,6 @@ export default function OSINTDashboard() {
           </div>
         </header>
 
-        {/* Mobile drawer */}
         {sidebarOpen && (
           <>
             <div className="drawer-overlay" onClick={() => setSidebarOpen(false)} />
@@ -752,12 +751,11 @@ export default function OSINTDashboard() {
                   <Icon d={ICONS.x} size={18} />
                 </button>
               </div>
-              <LeftPanel />
+              <LeftPanel {...leftPanelProps} />
             </div>
           </>
         )}
 
-        {/* Main */}
         <main style={{ maxWidth: 1220, margin: "0 auto", padding: "20px 16px 40px" }}>
           <div style={{ marginBottom: 24 }}>
             <h1 style={{ fontSize: 22, fontWeight: 600, color: "#1f2937", margin: 0 }}>Recherche entreprise</h1>
@@ -779,7 +777,7 @@ export default function OSINTDashboard() {
 
           <div className="osint-layout">
             <div className="osint-sidebar-desktop" style={{ position: "sticky", top: 76 }}>
-              <LeftPanel />
+              <LeftPanel {...leftPanelProps} />
             </div>
 
             <div style={{ background: "#fff", border: "1px solid #e5e7eb", borderRadius: 12, overflow: "hidden" }}>
@@ -804,7 +802,7 @@ export default function OSINTDashboard() {
                 </div>
 
                 <div style={{ fontSize: 12 }}>
-                  {status === "running" && !["completed","stopped","error"].includes(progress?.status) && (
+                  {status === "running" && !["completed", "stopped", "error"].includes(progress?.status) && (
                     <span style={{ display: "flex", alignItems: "center", gap: 6, color: T.tealDark, background: T.tealBg, padding: "6px 12px", borderRadius: 8, fontWeight: 500 }}>
                       <Spinner size={12} color={T.teal} />{Math.round(pct)}%
                     </span>

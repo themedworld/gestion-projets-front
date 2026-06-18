@@ -204,6 +204,7 @@ const SprintsPage = () => {
           headers: { Authorization: `Bearer ${token}` },
         });
         if (res.ok) {
+          
           const data = await res.json();
           setMembers(data.project?.assignedTo || []);
         }
@@ -228,6 +229,7 @@ const SprintsPage = () => {
         headers: { Authorization: `Bearer ${token}` },
       });
       if (res.ok) {
+        
         const data = await res.json();
         setSprints(Array.isArray(data) ? data : []);
       }
