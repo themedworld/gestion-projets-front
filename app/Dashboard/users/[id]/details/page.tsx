@@ -266,7 +266,8 @@ function gradeColor(grade: string) {
   );
 }
 
-function delayLabel(h: number) {
+function delayLabel(hRaw: number | string) {
+  const h = Number(hRaw) || 0;
   if (h < 0) return { text: `${Math.abs(h).toFixed(1)}h d'avance`, cls: "text-teal-700 bg-teal-50" };
   if (h === 0) return { text: "À l'heure", cls: "text-cyan-700 bg-cyan-50" };
   if (h <= 4)  return { text: `+${h.toFixed(1)}h`, cls: "text-amber-700 bg-amber-50" };
@@ -411,12 +412,12 @@ function SkillProfile({ profile, projects }: { profile: MemberProfile; projects:
   const totalSkills = allByDomain.IT.length + allByDomain.Marketing.length + allByDomain.CallCenter.length;
 
   const needsTraining: { domain: string; reason: string; severity: "high" | "medium" }[] = [];
-  if (profile.itTasksDone > 0 && profile.itAvgDelay > 24)
-    needsTraining.push({ domain: "IT", reason: `Retard moyen de ${profile.itAvgDelay.toFixed(1)}h — revue des sprints agile recommandée`, severity: "high" });
+  if (profile.itTasksDone > 0 && Number(profile.itAvgDelay) > 24)
+  needsTraining.push({ domain: "IT", reason: `Retard moyen de ${Number(profile.itAvgDelay).toFixed(1)}h — revue des sprints agile recommandée`, severity: "high" });
   if (profile.marketingTasksDone > 0 && profile.marketingAvgDelay > 24)
     needsTraining.push({ domain: "Marketing", reason: `Retard moyen de ${profile.marketingAvgDelay}h — formation gestion de campagnes`, severity: "medium" });
-  if (profile.callCenterTasksDone > 0 && profile.callCenterAvgDelay > 12)
-    needsTraining.push({ domain: "Call Center", reason: `Retard moyen de ${profile.callCenterAvgDelay.toFixed(1)}h — coaching scripts et SLA`, severity: "medium" });
+  if (profile.callCenterTasksDone > 0 && Number(profile.callCenterAvgDelay) > 12)
+  needsTraining.push({ domain: "Call Center", reason: `Retard moyen de ${Number(profile.callCenterAvgDelay).toFixed(1)}h — coaching scripts et SLA`, severity: "medium" });
   if (profile.lateCount > profile.onTimeCount)
     needsTraining.push({ domain: "Global", reason: `${profile.lateCount} tâches en retard sur ${profile.totalTasksDone} — atelier gestion du temps`, severity: "high" });
 

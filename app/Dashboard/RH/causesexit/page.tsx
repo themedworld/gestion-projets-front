@@ -279,7 +279,7 @@ export default function ExitAnalyticsPage() {
 
   const avgTenure = filtered.length
     ? Math.round(filtered.reduce((s, p) => s + p.tenure, 0) / filtered.length) : 0;
-  const medianSalary = median(filtered.map(p => p.baseSalary ?? 0));
+  const medianSalary = median(filtered.map(p => Number(p.baseSalary ?? 0)));
 
   const reasonCounts = useMemo(() => {
     const c: Record<string, number> = {};
@@ -736,11 +736,11 @@ export default function ExitAnalyticsPage() {
                 },
                 {
                   label: "Score moy. démissionnaires",
-                  value: filtered.filter(p => p.departureReason === "resignation").length
-                    ? Math.round(
-                        filtered.filter(p => p.departureReason === "resignation").reduce((s, p) => s + p.globalScore, 0) /
-                        filtered.filter(p => p.departureReason === "resignation").length
-                      ) + " pts" : "—",
+value: filtered.filter(p => p.departureReason === "resignation").length
+  ? Math.round(
+      filtered.filter(p => p.departureReason === "resignation").reduce((s, p) => s + Number(p.globalScore ?? 0), 0) /
+      filtered.filter(p => p.departureReason === "resignation").length
+    ) + " pts" : "—",
                   color: "text-violet-600", bg: "bg-violet-50",
                 },
                 {
@@ -752,15 +752,15 @@ export default function ExitAnalyticsPage() {
                       ) + " mois" : "—",
                   color: "text-teal-600", bg: "bg-teal-50",
                 },
-                {
-                  label: "Salaire moy. CDI sortants",
-                  value: filtered.filter(p => p.contractType === "cdi").length
-                    ? Math.round(
-                        filtered.filter(p => p.contractType === "cdi").reduce((s, p) => s + (p.baseSalary ?? 0), 0) /
-                        filtered.filter(p => p.contractType === "cdi").length
-                      ).toLocaleString("fr-FR") + " TND" : "—",
-                  color: "text-sky-600", bg: "bg-sky-50",
-                },
+{
+  label: "Salaire moy. CDI sortants",
+  value: filtered.filter(p => p.contractType === "cdi").length
+    ? Math.round(
+        filtered.filter(p => p.contractType === "cdi").reduce((s, p) => s + Number(p.baseSalary ?? 0), 0) /
+        filtered.filter(p => p.contractType === "cdi").length
+      ).toLocaleString("fr-FR") + " TND" : "—",
+  color: "text-sky-600", bg: "bg-sky-50",
+},
               ].map(i => (
                 <div key={i.label} className={`rounded-2xl ${i.bg} border border-white p-3.5 shadow-sm`}>
                   <p className="text-[11px] text-slate-500 mb-1.5 leading-tight">{i.label}</p>

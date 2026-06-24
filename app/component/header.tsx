@@ -59,7 +59,7 @@ const Header = () => {
             </Link>
 
             <Link
-              href="/about"
+              href="/aboutus"
               className="relative group px-4 py-2.5 rounded-lg text-sm font-medium transition-all duration-300"
             >
               <span className="relative z-10 text-slate-700 group-hover:text-indigo-600">
